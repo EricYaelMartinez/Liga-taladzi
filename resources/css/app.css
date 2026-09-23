@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+@theme {
+    --color-league-50: #eef8f4;
+    --color-league-100: #d7eee5;
+    --color-league-600: #176b56;
+    --color-league-700: #125444;
+    --color-league-900: #0c332b;
+    --color-gold-400: #e8bd4a;
+    --color-gold-500: #d9a928;
+}
+
+@layer base {
+    body {
+        @apply m-0 bg-slate-100 text-slate-900 antialiased;
+        font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+    }
+
+    button:disabled {
+        @apply cursor-not-allowed opacity-60;
+    }
+}
+
+@layer components {
+    .card {
+        @apply rounded-2xl border border-slate-200 bg-white shadow-sm;
+    }
+
+    .form-label {
+        @apply mb-2 block text-sm font-medium text-slate-700;
+    }
+
+    .form-input {
+        @apply block w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-league-600 focus:ring-3 focus:ring-league-100;
+    }
+
+    .btn-primary {
+        @apply inline-flex min-h-10 items-center justify-center rounded-xl bg-league-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-league-900 focus:outline-none focus:ring-3 focus:ring-league-100;
+    }
+
+    .btn-secondary {
+        @apply inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-3 focus:ring-slate-200;
+    }
+
+    .btn-danger {
+        @apply inline-flex min-h-10 items-center justify-center rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-50 focus:outline-none focus:ring-3 focus:ring-red-100;
+    }
+
+    .nav-link {
+        @apply rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900;
+    }
+
+    .nav-link-active {
+        @apply bg-league-50 text-league-700;
+    }
+
+    .mobile-nav-link {
+        @apply block rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100;
+    }
+
+    .stat-card {
+        @apply flex min-h-32 flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm;
+    }
+
+    .stat-label {
+        @apply text-sm font-medium text-slate-500;
+    }
+
+    .stat-value {
+        @apply text-3xl font-semibold text-league-900;
+    }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "liga-taladzi",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite --host 0.0.0.0",
+    "type-check": "vue-tsc --noEmit",
+    "validate:module0": "node scripts/validate-module0.mjs",
+    "validate:module1": "node scripts/validate-module1.mjs"
+  },
+  "dependencies": {
+    "@inertiajs/vue3": "^2.0.0",
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.0",
+    "@types/node": "^24.0.0",
+    "@vitejs/plugin-vue": "^6.0.0",
+    "laravel-vite-plugin": "^2.0.0",
+    "tailwindcss": "^4.1.0",
+    "typescript": "^5.9.0",
+    "vite": "^7.0.0",
+    "vue-tsc": "^3.0.0"
+  }
+}
