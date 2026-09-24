@@ -32,6 +32,17 @@ class IdentitySeeder extends Seeder
             ['name' => 'Eliminar usuarios', 'slug' => 'users.delete', 'module' => 'identity'],
             ['name' => 'Ver roles', 'slug' => 'roles.view', 'module' => 'identity'],
             ['name' => 'Asignar roles globales', 'slug' => 'roles.assign', 'module' => 'identity'],
+            ['name' => 'Ver ligas', 'slug' => 'leagues.view', 'module' => 'league'],
+            ['name' => 'Crear ligas', 'slug' => 'leagues.create', 'module' => 'league'],
+            ['name' => 'Modificar ligas', 'slug' => 'leagues.update', 'module' => 'league'],
+            ['name' => 'Eliminar ligas', 'slug' => 'leagues.delete', 'module' => 'league'],
+            ['name' => 'Ver configuración de liga', 'slug' => 'league.settings.view', 'module' => 'league'],
+            ['name' => 'Modificar configuración de liga', 'slug' => 'league.settings.update', 'module' => 'league'],
+            ['name' => 'Ver miembros de liga', 'slug' => 'league.members.view', 'module' => 'league'],
+            ['name' => 'Asignar miembros de liga', 'slug' => 'league.members.create', 'module' => 'league'],
+            ['name' => 'Modificar accesos de liga', 'slug' => 'league.members.update', 'module' => 'league'],
+            ['name' => 'Crear usuarios de liga', 'slug' => 'league.users.create', 'module' => 'league'],
+            ['name' => 'Ver bitácora', 'slug' => 'audit.view', 'module' => 'audit'],
         ];
 
         $permissionIds = collect($permissions)->map(function (array $permission): int {
@@ -42,5 +53,22 @@ class IdentitySeeder extends Seeder
         });
 
         Role::where('slug', 'system_admin')->firstOrFail()->permissions()->sync($permissionIds);
+
+        $leagueAdminPermissions = Permission::whereIn('slug', [
+            'dashboard.view',
+            'league.settings.view',
+            'league.settings.update',
+            'league.members.view',
+            'league.members.create',
+            'league.members.update',
+            'league.users.create',
+            'audit.view',
+        ])->pluck('id');
+        Role::where('slug', 'league_admin')->firstOrFail()->permissions()->sync($leagueAdminPermissions);
+
+        $dashboardPermission = Permission::where('slug', 'dashboard.view')->firstOrFail()->id;
+        Role::whereIn('slug', ['referee', 'team_representative', 'player'])
+            ->get()
+            ->each(fn (Role $role) => $role->permissions()->sync([$dashboardPermission]));
     }
 }

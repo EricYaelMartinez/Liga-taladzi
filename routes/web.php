@@ -1,12 +1,17 @@
 <?php
 
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\LeagueController;
+use App\Http\Controllers\AccessContextController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordChangeController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EnvironmentController;
+use App\Http\Controllers\League\AuditLogController;
+use App\Http\Controllers\League\MembershipController;
+use App\Http\Controllers\League\SettingsController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -29,6 +34,8 @@ Route::middleware(['auth', 'active'])->group(function (): void {
 
     Route::middleware('force.password')->group(function (): void {
         Route::get('/panel', DashboardController::class)->name('dashboard');
+        Route::get('/seleccionar-acceso', [AccessContextController::class, 'index'])->name('access.index');
+        Route::post('/seleccionar-acceso', [AccessContextController::class, 'store'])->name('access.store');
 
         Route::prefix('administracion')->name('admin.')->group(function (): void {
             Route::get('/usuarios', [UserController::class, 'index'])->middleware('permission:users.view')->name('users.index');
@@ -38,6 +45,24 @@ Route::middleware(['auth', 'active'])->group(function (): void {
             Route::put('/usuarios/{user}', [UserController::class, 'update'])->middleware('permission:users.update')->name('users.update');
             Route::put('/usuarios/{user}/contrasena', [UserController::class, 'resetPassword'])->middleware('permission:users.reset-password')->name('users.password');
             Route::delete('/usuarios/{user}', [UserController::class, 'destroy'])->middleware('permission:users.delete')->name('users.destroy');
+
+            Route::get('/ligas', [LeagueController::class, 'index'])->middleware('permission:leagues.view')->name('leagues.index');
+            Route::get('/ligas/crear', [LeagueController::class, 'create'])->middleware('permission:leagues.create')->name('leagues.create');
+            Route::post('/ligas', [LeagueController::class, 'store'])->middleware('permission:leagues.create')->name('leagues.store');
+            Route::get('/ligas/{league}/editar', [LeagueController::class, 'edit'])->middleware('permission:leagues.update')->name('leagues.edit');
+            Route::put('/ligas/{league}', [LeagueController::class, 'update'])->middleware('permission:leagues.update')->name('leagues.update');
+            Route::delete('/ligas/{league}', [LeagueController::class, 'destroy'])->middleware('permission:leagues.delete')->name('leagues.destroy');
+        });
+
+        Route::prefix('liga')->name('league.')->middleware('league.context')->group(function (): void {
+            Route::get('/configuracion', [SettingsController::class, 'edit'])->middleware('permission:league.settings.view')->name('settings.edit');
+            Route::post('/configuracion', [SettingsController::class, 'update'])->middleware('permission:league.settings.update')->name('settings.update');
+            Route::get('/miembros', [MembershipController::class, 'index'])->middleware('permission:league.members.view')->name('members.index');
+            Route::get('/miembros/crear-usuario', [MembershipController::class, 'createUser'])->middleware('permission:league.users.create')->name('members.users.create');
+            Route::post('/miembros/crear-usuario', [MembershipController::class, 'storeUser'])->middleware('permission:league.users.create')->name('members.users.store');
+            Route::post('/miembros', [MembershipController::class, 'store'])->middleware('permission:league.members.create')->name('members.store');
+            Route::put('/miembros/{membership}', [MembershipController::class, 'update'])->middleware('permission:league.members.update')->name('members.update');
+            Route::get('/bitacora', AuditLogController::class)->middleware('permission:audit.view')->name('audit.index');
         });
     });
 });

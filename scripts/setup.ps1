@@ -26,6 +26,9 @@ Assert-DockerSucceeded $LASTEXITCODE
 docker compose exec app php artisan db:seed --class=IdentitySeeder --force
 Assert-DockerSucceeded $LASTEXITCODE
 
+docker compose exec app php artisan storage:link --force
+Assert-DockerSucceeded $LASTEXITCODE
+
 docker compose exec app php vendor/bin/phpunit
 Assert-DockerSucceeded $LASTEXITCODE
 

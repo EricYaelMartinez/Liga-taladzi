@@ -99,6 +99,13 @@ docker compose exec frontend npm run build
 
 La guía de aceptación del módulo se encuentra en `MODULO_1_VERIFICACION.md`.
 
+## Módulo 2: multiliga
+
+El sistema permite crear ligas independientes, asignar varios roles a un mismo
+usuario, cambiar el contexto activo y personalizar nombre, logotipo y colores.
+Todas las operaciones contextuales vuelven a validar en el servidor la liga y
+el rol seleccionados. Consulta `MODULO_2_VERIFICACION.md` para la prueba completa.
+
 ## Datos locales
 
 PostgreSQL y Redis utilizan volúmenes de Docker. `docker compose down` no elimina la información.
