@@ -7,6 +7,7 @@ use App\Domain\Competition\Enums\SeasonStatus;
 use App\Domain\Identity\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Competition extends Model
@@ -35,4 +36,5 @@ class Competition extends Model
     public function category(): BelongsTo { return $this->belongsTo(Category::class); }
     public function regulation(): BelongsTo { return $this->belongsTo(Regulation::class); }
     public function creator(): BelongsTo { return $this->belongsTo(User::class, 'created_by'); }
+    public function teamParticipations(): HasMany { return $this->hasMany(\App\Domain\Team\Models\TeamParticipation::class); }
 }

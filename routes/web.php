@@ -14,6 +14,7 @@ use App\Http\Controllers\League\CompetitionSetupController;
 use App\Http\Controllers\League\MembershipController;
 use App\Http\Controllers\League\OperationalSettingsController;
 use App\Http\Controllers\League\SettingsController;
+use App\Http\Controllers\League\TeamController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -79,6 +80,19 @@ Route::middleware(['auth', 'active'])->group(function (): void {
                     Route::put('/reglamentos/{regulation}', 'updateRegulation')->name('regulations.update');
                     Route::post('/reglamentos/{regulation}/publicar', 'publishRegulation')->name('regulations.publish');
                     Route::post('/competencias', 'storeCompetition')->name('competitions.store');
+                });
+            });
+            Route::controller(TeamController::class)->middleware('permission:teams.view')->group(function (): void {
+                Route::get('/equipos', 'index')->name('teams.index');
+                Route::post('/equipos/{team}/solicitudes-cambio', 'proposeChange')->middleware('permission:teams.propose-update')->name('teams.changes.store');
+                Route::middleware('permission:teams.manage')->group(function (): void {
+                    Route::post('/equipos', 'store')->name('teams.store');
+                    Route::post('/equipos/{team}/actualizar', 'update')->name('teams.update');
+                    Route::post('/equipos/{team}/representante', 'assignRepresentative')->name('teams.representative.update');
+                    Route::post('/equipos/{team}/participaciones', 'requestParticipation')->name('teams.participations.store');
+                    Route::put('/participaciones/{participation}/estado', 'transitionParticipation')->name('teams.participations.status');
+                    Route::put('/solicitudes-cambio/{change}', 'reviewChange')->name('teams.changes.review');
+                    Route::get('/equipos/{team}/representante/{document}', 'representativeDocument')->name('teams.representative.document');
                 });
             });
         });

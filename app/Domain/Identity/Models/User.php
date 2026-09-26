@@ -55,6 +55,11 @@ class User extends Authenticatable
         return $this->hasMany(\App\Domain\League\Models\LeagueMembership::class);
     }
 
+    public function teamRepresentations(): HasMany
+    {
+        return $this->hasMany(\App\Domain\Team\Models\TeamRepresentative::class);
+    }
+
     public function hasRole(string $role): bool
     {
         return $this->roles()->where('slug', $role)->exists();

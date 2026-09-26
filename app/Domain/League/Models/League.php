@@ -62,6 +62,11 @@ class League extends Model
         return $this->hasMany(\App\Domain\Competition\Models\Regulation::class);
     }
 
+    public function teams(): HasMany
+    {
+        return $this->hasMany(\App\Domain\Team\Models\Team::class);
+    }
+
     public function isActive(): bool
     {
         return $this->status === LeagueStatus::Active;

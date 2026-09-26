@@ -121,6 +121,15 @@ Las reglas guardan una copia de los parámetros generales y quedan inmutables al
 publicarse, por lo que los cambios futuros no alteran el historial. Consulta
 `MODULO_4_VERIFICACION.md` para realizar la prueba guiada.
 
+## Módulo 5: equipos y representantes
+
+Los equipos conservan una identidad permanente, historial de nombres, un solo
+propietario con acceso y participaciones independientes por temporada. El
+administrador aprueba, rechaza, suspende o reactiva participaciones; los cambios
+solicitados por el representante quedan pendientes de revisión. Las fotografías
+e INE del propietario se guardan en almacenamiento privado. Consulta
+`MODULO_5_VERIFICACION.md` para realizar la prueba completa.
+
 ## Datos locales
 
 PostgreSQL y Redis utilizan volúmenes de Docker. `docker compose down` no elimina la información.
