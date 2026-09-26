@@ -4,6 +4,7 @@ namespace App\Domain\Identity\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Role extends Model
 {
@@ -22,5 +23,10 @@ class Role extends Model
     public function permissions(): BelongsToMany
     {
         return $this->belongsToMany(Permission::class);
+    }
+
+    public function leagueMemberships(): HasMany
+    {
+        return $this->hasMany(\App\Domain\League\Models\LeagueMembership::class);
     }
 }

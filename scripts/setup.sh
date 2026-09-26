@@ -8,6 +8,7 @@ command -v docker >/dev/null 2>&1 || { echo "Docker no está instalado."; exit 1
 docker compose up -d --build --wait --wait-timeout 600
 docker compose exec app php artisan migrate --force
 docker compose exec app php artisan db:seed --class=IdentitySeeder --force
+docker compose exec app php artisan storage:link --force
 docker compose exec app php vendor/bin/phpunit
 
 echo "Entorno listo: http://localhost:8080"

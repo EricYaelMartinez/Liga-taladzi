@@ -34,9 +34,9 @@ onMounted(async () => {
             <header class="bg-league-900 px-6 py-10 text-white sm:px-10">
                 <div class="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
                     <div>
-                        <p class="mb-2 text-sm font-semibold uppercase tracking-[0.2em] text-gold-400">Módulo 1</p>
+                        <p class="mb-2 text-sm font-semibold uppercase tracking-[0.2em] text-gold-400">Módulo 3</p>
                         <h1 class="text-3xl font-semibold sm:text-4xl">Sistema de la Liga Taladzi</h1>
-                        <p class="mt-3 max-w-2xl text-league-100">Entorno base y acceso seguro por roles y permisos.</p>
+                        <p class="mt-3 max-w-2xl text-league-100">Plataforma multiliga con parámetros operativos configurables e historial de cambios.</p>
                     </div>
                     <Link href="/iniciar-sesion" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-white px-5 py-3 text-sm font-semibold text-league-900 transition hover:bg-league-50">Iniciar sesión</Link>
                 </div>

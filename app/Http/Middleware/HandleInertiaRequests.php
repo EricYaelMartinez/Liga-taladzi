@@ -2,7 +2,9 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\LeagueContext;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -11,6 +13,8 @@ class HandleInertiaRequests extends Middleware
 
     public function share(Request $request): array
     {
+        $activeContext = app(LeagueContext::class)->current($request);
+
         return [
             ...parent::share($request),
             'appName' => config('app.name'),
@@ -26,12 +30,27 @@ class HandleInertiaRequests extends Middleware
                         ->with('permissions:id,slug')
                         ->get()
                         ->flatMap->permissions
+                        ->concat($activeContext ? $activeContext['role']->permissions()->get(['permissions.id', 'slug']) : [])
                         ->pluck('slug')
                         ->unique()
                         ->values()
                         ->all(),
                 ] : null,
             ],
+            'activeContext' => fn () => $activeContext ? [
+                'league' => [
+                    'id' => $activeContext['league']->id,
+                    'name' => $activeContext['league']->name,
+                    'logoUrl' => $activeContext['league']->logo_path ? Storage::disk('public')->url($activeContext['league']->logo_path) : null,
+                    'primaryColor' => $activeContext['league']->primary_color,
+                    'secondaryColor' => $activeContext['league']->secondary_color,
+                ],
+                'role' => [
+                    'id' => $activeContext['role']->id,
+                    'name' => $activeContext['role']->name,
+                    'slug' => $activeContext['role']->slug,
+                ],
+            ] : null,
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),

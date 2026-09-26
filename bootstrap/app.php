@@ -4,6 +4,7 @@ use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\RequirePasswordChange;
 use App\Http\Middleware\RequirePermission;
+use App\Http\Middleware\EnsureLeagueContext;
 use App\Console\Commands\CreateInitialAdmin;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -21,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'active' => EnsureUserIsActive::class,
             'force.password' => RequirePasswordChange::class,
             'permission' => RequirePermission::class,
+            'league.context' => EnsureLeagueContext::class,
         ]);
     })
     ->withCommands([CreateInitialAdmin::class])

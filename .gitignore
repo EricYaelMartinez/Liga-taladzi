@@ -12,4 +12,5 @@
 /vendor
 docker-compose.override.yml
 npm-debug.log*
+/public/storage
 
