@@ -106,6 +106,21 @@ usuario, cambiar el contexto activo y personalizar nombre, logotipo y colores.
 Todas las operaciones contextuales vuelven a validar en el servidor la liga y
 el rol seleccionados. Consulta `MODULO_2_VERIFICACION.md` para la prueba completa.
 
+## Módulo 3: configuración por liga
+
+Cada liga puede definir duración y partes del partido, descanso, margen opcional
+entre partidos, plazo de apelación, prórroga de pago, periodo de reactivación y
+fianza. Los cambios generan una nueva revisión y quedan en la bitácora. Consulta
+`MODULO_3_VERIFICACION.md` para la validación funcional.
+
+## Módulo 4: temporadas y competencias
+
+La estructura deportiva separa temporadas, torneos, divisiones y categorías.
+Cada competencia selecciona su formato y una versión publicada del reglamento.
+Las reglas guardan una copia de los parámetros generales y quedan inmutables al
+publicarse, por lo que los cambios futuros no alteran el historial. Consulta
+`MODULO_4_VERIFICACION.md` para realizar la prueba guiada.
+
 ## Datos locales
 
 PostgreSQL y Redis utilizan volúmenes de Docker. `docker compose down` no elimina la información.

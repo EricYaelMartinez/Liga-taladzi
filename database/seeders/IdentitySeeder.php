@@ -42,6 +42,8 @@ class IdentitySeeder extends Seeder
             ['name' => 'Asignar miembros de liga', 'slug' => 'league.members.create', 'module' => 'league'],
             ['name' => 'Modificar accesos de liga', 'slug' => 'league.members.update', 'module' => 'league'],
             ['name' => 'Crear usuarios de liga', 'slug' => 'league.users.create', 'module' => 'league'],
+            ['name' => 'Ver temporadas y competencias', 'slug' => 'competitions.view', 'module' => 'competition'],
+            ['name' => 'Administrar temporadas y competencias', 'slug' => 'competitions.manage', 'module' => 'competition'],
             ['name' => 'Ver bitácora', 'slug' => 'audit.view', 'module' => 'audit'],
         ];
 
@@ -62,6 +64,8 @@ class IdentitySeeder extends Seeder
             'league.members.create',
             'league.members.update',
             'league.users.create',
+            'competitions.view',
+            'competitions.manage',
             'audit.view',
         ])->pluck('id');
         Role::where('slug', 'league_admin')->firstOrFail()->permissions()->sync($leagueAdminPermissions);

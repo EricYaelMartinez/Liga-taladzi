@@ -11,6 +11,7 @@ const canManageUsers = computed(() => user.value?.permissions.includes('users.vi
 const canManageLeagues = computed(() => user.value?.permissions.includes('leagues.view') ?? false);
 const canViewSettings = computed(() => user.value?.permissions.includes('league.settings.view') ?? false);
 const canViewMembers = computed(() => user.value?.permissions.includes('league.members.view') ?? false);
+const canViewCompetitions = computed(() => user.value?.permissions.includes('competitions.view') ?? false);
 const canViewAudit = computed(() => user.value?.permissions.includes('audit.view') ?? false);
 const context = computed(() => page.props.activeContext);
 const brandStyle = computed<CSSProperties>(() => {
@@ -39,16 +40,18 @@ const brandStyle = computed<CSSProperties>(() => {
                         <img v-if="context?.league.logoUrl" :src="context.league.logoUrl" alt="" class="h-8 w-8 rounded-lg object-contain">
                         <span>{{ context?.league.name ?? 'Liga Taladzi' }}</span>
                     </Link>
-                    <nav class="hidden items-center gap-2 md:flex">
+                    <nav class="hidden items-center gap-1 xl:flex">
                         <Link href="/panel" class="nav-link" :class="{ 'nav-link-active': page.url === '/panel' }">Panel</Link>
                         <Link v-if="canManageUsers" href="/administracion/usuarios" class="nav-link" :class="{ 'nav-link-active': page.url.startsWith('/administracion/usuarios') }">Usuarios</Link>
                         <Link v-if="canManageLeagues" href="/administracion/ligas" class="nav-link" :class="{ 'nav-link-active': page.url.startsWith('/administracion/ligas') }">Ligas</Link>
                         <Link v-if="context && canViewMembers" href="/liga/miembros" class="nav-link" :class="{ 'nav-link-active': page.url.startsWith('/liga/miembros') }">Miembros</Link>
-                        <Link v-if="context && canViewSettings" href="/liga/configuracion" class="nav-link" :class="{ 'nav-link-active': page.url.startsWith('/liga/configuracion') }">Configuración</Link>
+                        <Link v-if="context && canViewSettings" href="/liga/configuracion" class="nav-link" :class="{ 'nav-link-active': page.url.startsWith('/liga/configuracion') }">Identidad</Link>
+                        <Link v-if="context && canViewSettings" href="/liga/parametros" class="nav-link" :class="{ 'nav-link-active': page.url.startsWith('/liga/parametros') }">Parámetros</Link>
+                        <Link v-if="context && canViewCompetitions" href="/liga/competencias" class="nav-link" :class="{ 'nav-link-active': page.url.startsWith('/liga/competencias') }">Competencias</Link>
                         <Link v-if="context && canViewAudit" href="/liga/bitacora" class="nav-link" :class="{ 'nav-link-active': page.url.startsWith('/liga/bitacora') }">Bitácora</Link>
                     </nav>
                 </div>
-                <div class="hidden items-center gap-4 md:flex">
+                <div class="hidden items-center gap-4 xl:flex">
                     <div class="text-right">
                         <p class="text-sm font-semibold text-slate-800">{{ user?.name }}</p>
                         <p class="text-xs text-slate-500">{{ context?.role.name ?? 'Administración del sistema' }}</p>
@@ -56,16 +59,18 @@ const brandStyle = computed<CSSProperties>(() => {
                     <Link href="/seleccionar-acceso" class="btn-secondary">Cambiar acceso</Link>
                     <Link href="/cerrar-sesion" method="post" as="button" class="btn-secondary">Salir</Link>
                 </div>
-                <button class="rounded-lg p-2 text-slate-600 md:hidden" type="button" aria-label="Abrir navegación" @click="mobileOpen = !mobileOpen">
+                <button class="rounded-lg p-2 text-slate-600 xl:hidden" type="button" aria-label="Abrir navegación" @click="mobileOpen = !mobileOpen">
                     <span class="block text-2xl">☰</span>
                 </button>
             </div>
-            <nav v-if="mobileOpen" class="border-t border-slate-200 px-4 py-3 md:hidden">
+            <nav v-if="mobileOpen" class="border-t border-slate-200 px-4 py-3 xl:hidden">
                 <Link href="/panel" class="mobile-nav-link">Panel</Link>
                 <Link v-if="canManageUsers" href="/administracion/usuarios" class="mobile-nav-link">Usuarios</Link>
                 <Link v-if="canManageLeagues" href="/administracion/ligas" class="mobile-nav-link">Ligas</Link>
                 <Link v-if="context && canViewMembers" href="/liga/miembros" class="mobile-nav-link">Miembros</Link>
-                <Link v-if="context && canViewSettings" href="/liga/configuracion" class="mobile-nav-link">Configuración</Link>
+                <Link v-if="context && canViewSettings" href="/liga/configuracion" class="mobile-nav-link">Identidad visual</Link>
+                <Link v-if="context && canViewSettings" href="/liga/parametros" class="mobile-nav-link">Parámetros generales</Link>
+                <Link v-if="context && canViewCompetitions" href="/liga/competencias" class="mobile-nav-link">Temporadas y competencias</Link>
                 <Link v-if="context && canViewAudit" href="/liga/bitacora" class="mobile-nav-link">Bitácora</Link>
                 <Link href="/seleccionar-acceso" class="mobile-nav-link">Cambiar liga o rol</Link>
                 <Link href="/cerrar-sesion" method="post" as="button" class="mobile-nav-link w-full text-left">Cerrar sesión</Link>

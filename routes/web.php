@@ -10,7 +10,9 @@ use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EnvironmentController;
 use App\Http\Controllers\League\AuditLogController;
+use App\Http\Controllers\League\CompetitionSetupController;
 use App\Http\Controllers\League\MembershipController;
+use App\Http\Controllers\League\OperationalSettingsController;
 use App\Http\Controllers\League\SettingsController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -57,12 +59,28 @@ Route::middleware(['auth', 'active'])->group(function (): void {
         Route::prefix('liga')->name('league.')->middleware('league.context')->group(function (): void {
             Route::get('/configuracion', [SettingsController::class, 'edit'])->middleware('permission:league.settings.view')->name('settings.edit');
             Route::post('/configuracion', [SettingsController::class, 'update'])->middleware('permission:league.settings.update')->name('settings.update');
+            Route::get('/parametros', [OperationalSettingsController::class, 'edit'])->middleware('permission:league.settings.view')->name('settings.operational.edit');
+            Route::put('/parametros', [OperationalSettingsController::class, 'update'])->middleware('permission:league.settings.update')->name('settings.operational.update');
             Route::get('/miembros', [MembershipController::class, 'index'])->middleware('permission:league.members.view')->name('members.index');
             Route::get('/miembros/crear-usuario', [MembershipController::class, 'createUser'])->middleware('permission:league.users.create')->name('members.users.create');
             Route::post('/miembros/crear-usuario', [MembershipController::class, 'storeUser'])->middleware('permission:league.users.create')->name('members.users.store');
             Route::post('/miembros', [MembershipController::class, 'store'])->middleware('permission:league.members.create')->name('members.store');
             Route::put('/miembros/{membership}', [MembershipController::class, 'update'])->middleware('permission:league.members.update')->name('members.update');
             Route::get('/bitacora', AuditLogController::class)->middleware('permission:audit.view')->name('audit.index');
+            Route::controller(CompetitionSetupController::class)->middleware('permission:competitions.view')->group(function (): void {
+                Route::get('/competencias', 'index')->name('competitions.index');
+                Route::middleware('permission:competitions.manage')->group(function (): void {
+                    Route::post('/temporadas', 'storeSeason')->name('seasons.store');
+                    Route::put('/temporadas/{season}/estado', 'transitionSeason')->name('seasons.status');
+                    Route::post('/divisiones', 'storeDivision')->name('divisions.store');
+                    Route::post('/categorias', 'storeCategory')->name('categories.store');
+                    Route::post('/torneos', 'storeTournament')->name('tournaments.store');
+                    Route::post('/reglamentos', 'storeRegulation')->name('regulations.store');
+                    Route::put('/reglamentos/{regulation}', 'updateRegulation')->name('regulations.update');
+                    Route::post('/reglamentos/{regulation}/publicar', 'publishRegulation')->name('regulations.publish');
+                    Route::post('/competencias', 'storeCompetition')->name('competitions.store');
+                });
+            });
         });
     });
 });

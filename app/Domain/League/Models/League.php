@@ -7,6 +7,7 @@ use App\Domain\League\Enums\LeagueStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class League extends Model
@@ -34,6 +35,31 @@ class League extends Model
     public function memberships(): HasMany
     {
         return $this->hasMany(LeagueMembership::class);
+    }
+
+    public function setting(): HasOne
+    {
+        return $this->hasOne(LeagueSetting::class);
+    }
+
+    public function seasons(): HasMany
+    {
+        return $this->hasMany(\App\Domain\Competition\Models\Season::class);
+    }
+
+    public function divisions(): HasMany
+    {
+        return $this->hasMany(\App\Domain\Competition\Models\Division::class);
+    }
+
+    public function categories(): HasMany
+    {
+        return $this->hasMany(\App\Domain\Competition\Models\Category::class);
+    }
+
+    public function regulations(): HasMany
+    {
+        return $this->hasMany(\App\Domain\Competition\Models\Regulation::class);
     }
 
     public function isActive(): bool
