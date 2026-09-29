@@ -16,8 +16,26 @@ if (-not (Test-Path ".env")) {
     Copy-Item ".env.example" ".env"
 }
 
-Write-Host "Construyendo servicios y esperando a que PHP termine de instalar sus dependencias..."
+Write-Host "Preparando las dependencias PHP..."
+docker compose build app
+Assert-DockerSucceeded $LASTEXITCODE
+
+if (-not (Test-Path "composer.lock")) {
+    docker compose run --rm --no-deps --entrypoint composer app install --no-interaction --prefer-dist --no-progress
+    Assert-DockerSucceeded $LASTEXITCODE
+} elseif (-not (Select-String -Path "composer.lock" -Pattern '"name": "barryvdh/laravel-dompdf"' -Quiet)) {
+    docker compose run --rm --no-deps --entrypoint composer app update barryvdh/laravel-dompdf --with-all-dependencies --no-interaction --prefer-dist --no-progress
+    Assert-DockerSucceeded $LASTEXITCODE
+}
+
+Write-Host "Construyendo servicios y esperando a que estén disponibles..."
 docker compose up -d --build --wait --wait-timeout 600
+Assert-DockerSucceeded $LASTEXITCODE
+
+docker compose exec app composer install --no-interaction --prefer-dist --no-progress
+Assert-DockerSucceeded $LASTEXITCODE
+
+docker compose exec app php artisan optimize:clear
 Assert-DockerSucceeded $LASTEXITCODE
 
 docker compose exec app php artisan migrate --force

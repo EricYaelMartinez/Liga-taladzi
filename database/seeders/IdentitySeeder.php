@@ -47,6 +47,10 @@ class IdentitySeeder extends Seeder
             ['name' => 'Ver equipos', 'slug' => 'teams.view', 'module' => 'team'],
             ['name' => 'Administrar equipos', 'slug' => 'teams.manage', 'module' => 'team'],
             ['name' => 'Proponer cambios de su equipo', 'slug' => 'teams.propose-update', 'module' => 'team'],
+            ['name' => 'Ver jugadores y plantillas', 'slug' => 'players.view', 'module' => 'player'],
+            ['name' => 'Proponer altas y bajas de jugadores', 'slug' => 'players.propose', 'module' => 'player'],
+            ['name' => 'Administrar y aprobar jugadores', 'slug' => 'players.manage', 'module' => 'player'],
+            ['name' => 'Actualizar datos propios de jugador', 'slug' => 'players.self-update', 'module' => 'player'],
             ['name' => 'Ver bitácora', 'slug' => 'audit.view', 'module' => 'audit'],
         ];
 
@@ -71,15 +75,22 @@ class IdentitySeeder extends Seeder
             'competitions.manage',
             'teams.view',
             'teams.manage',
+            'players.view',
+            'players.propose',
+            'players.manage',
+            'players.self-update',
             'audit.view',
         ])->pluck('id');
         Role::where('slug', 'league_admin')->firstOrFail()->permissions()->sync($leagueAdminPermissions);
 
         $dashboardPermission = Permission::where('slug', 'dashboard.view')->firstOrFail()->id;
-        Role::whereIn('slug', ['referee', 'player'])->get()
-            ->each(fn (Role $role) => $role->permissions()->sync([$dashboardPermission]));
+        Role::where('slug', 'referee')->firstOrFail()->permissions()->sync([$dashboardPermission]);
+        $playerPermissions = Permission::whereIn('slug', [
+            'dashboard.view', 'players.view', 'players.self-update',
+        ])->pluck('id');
+        Role::where('slug', 'player')->firstOrFail()->permissions()->sync($playerPermissions);
         $representativePermissions = Permission::whereIn('slug', [
-            'dashboard.view', 'teams.view', 'teams.propose-update',
+            'dashboard.view', 'teams.view', 'teams.propose-update', 'players.view', 'players.propose',
         ])->pluck('id');
         Role::where('slug', 'team_representative')->firstOrFail()->permissions()->sync($representativePermissions);
     }

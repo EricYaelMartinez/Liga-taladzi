@@ -15,7 +15,8 @@ class League extends Model
     use SoftDeletes;
 
     protected $fillable = [
-        'name', 'slug', 'logo_path', 'primary_color', 'secondary_color',
+        'name', 'slug', 'logo_path', 'credential_logo_1_path', 'credential_logo_2_path',
+        'credential_logo_3_path', 'credential_logo_4_path', 'primary_color', 'secondary_color',
         'status', 'settings', 'created_by',
     ];
 
@@ -65,6 +66,11 @@ class League extends Model
     public function teams(): HasMany
     {
         return $this->hasMany(\App\Domain\Team\Models\Team::class);
+    }
+
+    public function players(): HasMany
+    {
+        return $this->hasMany(\App\Domain\Player\Models\Player::class);
     }
 
     public function isActive(): bool

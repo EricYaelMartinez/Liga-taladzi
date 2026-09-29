@@ -6,6 +6,7 @@
   "keywords": ["laravel", "football", "league-management"],
   "license": "proprietary",
   "require": {
+    "barryvdh/laravel-dompdf": "^3.1",
     "php": "^8.5",
     "inertiajs/inertia-laravel": "^2.0",
     "laravel/framework": "^13.0",

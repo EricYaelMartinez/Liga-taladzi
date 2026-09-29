@@ -9,6 +9,7 @@ use App\Domain\Identity\Models\User;
 use App\Domain\Team\Enums\ParticipationStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TeamParticipation extends Model
 {
@@ -33,4 +34,5 @@ class TeamParticipation extends Model
     public function division(): BelongsTo { return $this->belongsTo(Division::class); }
     public function requestedBy(): BelongsTo { return $this->belongsTo(User::class, 'requested_by'); }
     public function reviewedBy(): BelongsTo { return $this->belongsTo(User::class, 'reviewed_by'); }
+    public function playerRegistrations(): HasMany { return $this->hasMany(\App\Domain\Player\Models\PlayerRegistration::class); }
 }

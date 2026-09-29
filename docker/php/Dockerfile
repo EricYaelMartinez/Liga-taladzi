@@ -3,17 +3,22 @@ FROM php:8.5-fpm-alpine
 RUN apk add --no-cache \
         bash \
         curl \
+        freetype-dev \
         git \
         icu-dev \
+        libjpeg-turbo-dev \
         libpng-dev \
         libpq-dev \
+        libwebp-dev \
         libzip-dev \
         oniguruma-dev \
         postgresql-client \
         sqlite-dev \
         unzip \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
     && docker-php-ext-install \
         bcmath \
+        gd \
         intl \
         mbstring \
         pdo_pgsql \

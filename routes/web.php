@@ -13,6 +13,8 @@ use App\Http\Controllers\League\AuditLogController;
 use App\Http\Controllers\League\CompetitionSetupController;
 use App\Http\Controllers\League\MembershipController;
 use App\Http\Controllers\League\OperationalSettingsController;
+use App\Http\Controllers\League\PlayerController;
+use App\Http\Controllers\League\PlayerCredentialController;
 use App\Http\Controllers\League\SettingsController;
 use App\Http\Controllers\League\TeamController;
 use Illuminate\Support\Facades\Route;
@@ -94,6 +96,24 @@ Route::middleware(['auth', 'active'])->group(function (): void {
                     Route::put('/solicitudes-cambio/{change}', 'reviewChange')->name('teams.changes.review');
                     Route::get('/equipos/{team}/representante/{document}', 'representativeDocument')->name('teams.representative.document');
                 });
+            });
+            Route::controller(PlayerController::class)->middleware('permission:players.view')->group(function (): void {
+                Route::get('/jugadores', 'index')->name('players.index');
+                Route::post('/jugadores/{player}/datos', 'updateProfile')->middleware('permission:players.self-update')->name('players.profile.update');
+                Route::put('/plantillas/{registration}/baja', 'release')->name('players.registrations.release');
+                Route::middleware('permission:players.propose')->group(function (): void {
+                    Route::post('/jugadores', 'store')->name('players.store');
+                    Route::post('/jugadores/{player}/plantillas', 'registerExisting')->name('players.registrations.store');
+                });
+                Route::middleware('permission:players.manage')->group(function (): void {
+                    Route::put('/plantillas/{registration}/estado', 'transition')->name('players.registrations.status');
+                    Route::post('/jugadores/{player}/vincular', 'linkUser')->name('players.link-user');
+                    Route::get('/jugadores/{player}/archivo/{document}', 'privateFile')->name('players.private-file');
+                });
+            });
+            Route::controller(PlayerCredentialController::class)->middleware('permission:players.manage')->group(function (): void {
+                Route::get('/plantillas/{participation}/credenciales', 'preview')->name('players.credentials.preview');
+                Route::get('/plantillas/{participation}/credenciales.pdf', 'download')->name('players.credentials.download');
             });
         });
     });

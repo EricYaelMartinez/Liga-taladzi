@@ -13,6 +13,7 @@ const canViewSettings = computed(() => user.value?.permissions.includes('league.
 const canViewMembers = computed(() => user.value?.permissions.includes('league.members.view') ?? false);
 const canViewCompetitions = computed(() => user.value?.permissions.includes('competitions.view') ?? false);
 const canViewTeams = computed(() => user.value?.permissions.includes('teams.view') ?? false);
+const canViewPlayers = computed(() => user.value?.permissions.includes('players.view') ?? false);
 const canViewAudit = computed(() => user.value?.permissions.includes('audit.view') ?? false);
 const context = computed(() => page.props.activeContext);
 const brandStyle = computed<CSSProperties>(() => {
@@ -50,6 +51,7 @@ const brandStyle = computed<CSSProperties>(() => {
                         <Link v-if="context && canViewSettings" href="/liga/parametros" class="nav-link" :class="{ 'nav-link-active': page.url.startsWith('/liga/parametros') }">Parámetros</Link>
                         <Link v-if="context && canViewCompetitions" href="/liga/competencias" class="nav-link" :class="{ 'nav-link-active': page.url.startsWith('/liga/competencias') }">Competencias</Link>
                         <Link v-if="context && canViewTeams" href="/liga/equipos" class="nav-link" :class="{ 'nav-link-active': page.url.startsWith('/liga/equipos') }">Equipos</Link>
+                        <Link v-if="context && canViewPlayers" href="/liga/jugadores" class="nav-link" :class="{ 'nav-link-active': page.url.startsWith('/liga/jugadores') || page.url.startsWith('/liga/plantillas') }">Jugadores</Link>
                         <Link v-if="context && canViewAudit" href="/liga/bitacora" class="nav-link" :class="{ 'nav-link-active': page.url.startsWith('/liga/bitacora') }">Bitácora</Link>
                     </nav>
                 </div>
@@ -74,6 +76,7 @@ const brandStyle = computed<CSSProperties>(() => {
                 <Link v-if="context && canViewSettings" href="/liga/parametros" class="mobile-nav-link">Parámetros generales</Link>
                 <Link v-if="context && canViewCompetitions" href="/liga/competencias" class="mobile-nav-link">Temporadas y competencias</Link>
                 <Link v-if="context && canViewTeams" href="/liga/equipos" class="mobile-nav-link">Equipos</Link>
+                <Link v-if="context && canViewPlayers" href="/liga/jugadores" class="mobile-nav-link">Jugadores y plantillas</Link>
                 <Link v-if="context && canViewAudit" href="/liga/bitacora" class="mobile-nav-link">Bitácora</Link>
                 <Link href="/seleccionar-acceso" class="mobile-nav-link">Cambiar liga o rol</Link>
                 <Link href="/cerrar-sesion" method="post" as="button" class="mobile-nav-link w-full text-left">Cerrar sesión</Link>

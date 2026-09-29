@@ -33,4 +33,5 @@ class Team extends Model
     public function activeRepresentative(): HasOne { return $this->hasOne(TeamRepresentative::class)->where('status', 'active'); }
     public function participations(): HasMany { return $this->hasMany(TeamParticipation::class); }
     public function changeRequests(): HasMany { return $this->hasMany(TeamChangeRequest::class); }
+    public function playerRegistrations(): HasMany { return $this->hasMany(\App\Domain\Player\Models\PlayerRegistration::class); }
 }

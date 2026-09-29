@@ -37,6 +37,7 @@ class LeagueSettingsTest extends TestCase
             'status' => 'active',
             'started_at' => now(),
         ]);
+        $pixel = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=');
 
         $this->actingAs($user)
             ->withSession([LeagueContext::LEAGUE_KEY => $league->id, LeagueContext::ROLE_KEY => $role->id])
@@ -46,14 +47,21 @@ class LeagueSettingsTest extends TestCase
                 'secondary_color' => '#abcdef',
                 'logo' => UploadedFile::fake()->createWithContent(
                     'escudo.png',
-                    base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='),
+                    $pixel,
                 ),
+                'credential_logo_1' => UploadedFile::fake()->createWithContent('credencial-1.png', $pixel),
+                'credential_logo_2' => UploadedFile::fake()->createWithContent('credencial-2.png', $pixel),
+                'credential_logo_3' => UploadedFile::fake()->createWithContent('credencial-3.png', $pixel),
+                'credential_logo_4' => UploadedFile::fake()->createWithContent('credencial-4.png', $pixel),
                 'reason' => 'Actualización institucional',
             ])->assertSessionHasNoErrors();
 
         $league->refresh();
         $this->assertSame('Liga Renovada', $league->name);
         Storage::disk('public')->assertExists($league->logo_path);
+        foreach (range(1, 4) as $position) {
+            Storage::disk('public')->assertExists($league->{"credential_logo_{$position}_path"});
+        }
         $this->assertDatabaseHas('audit_logs', ['league_id' => $league->id, 'action' => 'league.settings.updated']);
     }
 }

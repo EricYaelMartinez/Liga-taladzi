@@ -48,6 +48,10 @@ export type LeagueSummary = {
     name: string;
     slug: string;
     logo_path: string | null;
+    credential_logo_1_path?: string | null;
+    credential_logo_2_path?: string | null;
+    credential_logo_3_path?: string | null;
+    credential_logo_4_path?: string | null;
     primary_color: string;
     secondary_color: string;
     status: string;

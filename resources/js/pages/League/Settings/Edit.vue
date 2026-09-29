@@ -11,11 +11,20 @@ const form = useForm({
     secondary_color: props.league.secondary_color,
     logo: null as File | null,
     remove_logo: false,
+    credential_logo_1: null as File | null,
+    credential_logo_2: null as File | null,
+    credential_logo_3: null as File | null,
+    credential_logo_4: null as File | null,
+    remove_credential_logo_1: false,
+    remove_credential_logo_2: false,
+    remove_credential_logo_3: false,
+    remove_credential_logo_4: false,
     reason: '',
 });
 const selectLogo = (event: Event) => {
     form.logo = (event.target as HTMLInputElement).files?.[0] ?? null;
 };
+const selectedFile = (event: Event): File | null => (event.target as HTMLInputElement).files?.[0] ?? null;
 </script>
 
 <template>
@@ -37,6 +46,16 @@ const selectLogo = (event: Event) => {
                 <div class="grid gap-5 sm:grid-cols-2">
                     <div><label class="form-label">Color principal</label><div class="flex gap-2"><input v-model="form.primary_color" type="color" class="h-11 w-14 rounded-lg border"><input v-model="form.primary_color" class="form-input"></div><FormError :message="form.errors.primary_color" /></div>
                     <div><label class="form-label">Color secundario</label><div class="flex gap-2"><input v-model="form.secondary_color" type="color" class="h-11 w-14 rounded-lg border"><input v-model="form.secondary_color" class="form-input"></div><FormError :message="form.errors.secondary_color" /></div>
+                </div>
+                <div class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                    <h2 class="text-lg font-semibold">Logotipos para credenciales</h2>
+                    <p class="mt-1 text-sm text-slate-600">Los cuatro espacios aparecerán en todas las credenciales emitidas por esta liga.</p>
+                    <div class="mt-5 grid gap-5 sm:grid-cols-2">
+                        <div><label class="form-label">Logotipo 1</label><img v-if="league.credential_logo_1_path && !form.remove_credential_logo_1" :src="`/storage/${league.credential_logo_1_path}`" alt="Logotipo 1" class="mb-3 h-20 w-full rounded-lg border bg-white object-contain p-2"><input class="form-input" type="file" accept="image/jpeg,image/png,image/webp" @change="form.credential_logo_1 = selectedFile($event)"><FormError :message="form.errors.credential_logo_1" /><label v-if="league.credential_logo_1_path" class="mt-2 flex gap-2 text-sm"><input v-model="form.remove_credential_logo_1" type="checkbox"> Eliminar</label></div>
+                        <div><label class="form-label">Logotipo 2</label><img v-if="league.credential_logo_2_path && !form.remove_credential_logo_2" :src="`/storage/${league.credential_logo_2_path}`" alt="Logotipo 2" class="mb-3 h-20 w-full rounded-lg border bg-white object-contain p-2"><input class="form-input" type="file" accept="image/jpeg,image/png,image/webp" @change="form.credential_logo_2 = selectedFile($event)"><FormError :message="form.errors.credential_logo_2" /><label v-if="league.credential_logo_2_path" class="mt-2 flex gap-2 text-sm"><input v-model="form.remove_credential_logo_2" type="checkbox"> Eliminar</label></div>
+                        <div><label class="form-label">Logotipo 3</label><img v-if="league.credential_logo_3_path && !form.remove_credential_logo_3" :src="`/storage/${league.credential_logo_3_path}`" alt="Logotipo 3" class="mb-3 h-20 w-full rounded-lg border bg-white object-contain p-2"><input class="form-input" type="file" accept="image/jpeg,image/png,image/webp" @change="form.credential_logo_3 = selectedFile($event)"><FormError :message="form.errors.credential_logo_3" /><label v-if="league.credential_logo_3_path" class="mt-2 flex gap-2 text-sm"><input v-model="form.remove_credential_logo_3" type="checkbox"> Eliminar</label></div>
+                        <div><label class="form-label">Logotipo 4</label><img v-if="league.credential_logo_4_path && !form.remove_credential_logo_4" :src="`/storage/${league.credential_logo_4_path}`" alt="Logotipo 4" class="mb-3 h-20 w-full rounded-lg border bg-white object-contain p-2"><input class="form-input" type="file" accept="image/jpeg,image/png,image/webp" @change="form.credential_logo_4 = selectedFile($event)"><FormError :message="form.errors.credential_logo_4" /><label v-if="league.credential_logo_4_path" class="mt-2 flex gap-2 text-sm"><input v-model="form.remove_credential_logo_4" type="checkbox"> Eliminar</label></div>
+                    </div>
                 </div>
                 <div class="rounded-2xl p-6 text-white" :style="{ background: `linear-gradient(120deg, ${form.primary_color}, ${form.secondary_color})` }"><p class="text-sm opacity-80">Vista previa</p><p class="mt-2 text-2xl font-semibold">{{ form.name || 'Nombre de la liga' }}</p></div>
                 <div><label class="form-label">Motivo del cambio</label><textarea v-model="form.reason" class="form-input min-h-24" required maxlength="500"></textarea><FormError :message="form.errors.reason" /></div>

@@ -247,6 +247,15 @@ docker compose down
 docker compose up -d
 ```
 
+## Módulo 6: jugadores y plantillas
+
+El sistema incorpora expedientes privados de jugadores, plantillas por temporada,
+documentación de menores, dorsales únicos, aprobación administrativa, altas,
+bajas, reincorporaciones, historial de movimientos y credenciales imprimibles
+de 9 × 6 cm en un PDF independiente por equipo. La identidad de cada credencial
+usa los colores y cuatro logotipos configurables de la liga. Consulte
+`MODULO_6_VERIFICACION.md` para la instalación y las pruebas funcionales.
+
 ## Seguridad
 
 - `.env` no se incluye en Git.
