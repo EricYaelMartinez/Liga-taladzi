@@ -56,6 +56,8 @@ class IdentitySeeder extends Seeder
             ['name' => 'Emitir y revocar credenciales', 'slug' => 'credentials.manage', 'module' => 'document'],
             ['name' => 'Ver campos y disponibilidad', 'slug' => 'fields.view', 'module' => 'scheduling'],
             ['name' => 'Administrar campos y disponibilidad', 'slug' => 'fields.manage', 'module' => 'scheduling'],
+            ['name' => 'Ver árbitros y disponibilidad', 'slug' => 'referees.view', 'module' => 'referee'],
+            ['name' => 'Administrar árbitros y observaciones', 'slug' => 'referees.manage', 'module' => 'referee'],
             ['name' => 'Ver bitácora', 'slug' => 'audit.view', 'module' => 'audit'],
         ];
 
@@ -89,12 +91,15 @@ class IdentitySeeder extends Seeder
             'credentials.manage',
             'fields.view',
             'fields.manage',
+            'referees.view',
+            'referees.manage',
             'audit.view',
         ])->pluck('id');
         Role::where('slug', 'league_admin')->firstOrFail()->permissions()->sync($leagueAdminPermissions);
 
         $dashboardPermission = Permission::where('slug', 'dashboard.view')->firstOrFail()->id;
-        Role::where('slug', 'referee')->firstOrFail()->permissions()->sync([$dashboardPermission]);
+        $refereePermissions = Permission::whereIn('slug', ['dashboard.view', 'referees.view'])->pluck('id');
+        Role::where('slug', 'referee')->firstOrFail()->permissions()->sync($refereePermissions);
         $playerPermissions = Permission::whereIn('slug', [
             'dashboard.view', 'players.view', 'players.self-update',
         ])->pluck('id');

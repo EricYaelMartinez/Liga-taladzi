@@ -17,6 +17,7 @@ use App\Http\Controllers\League\OperationalSettingsController;
 use App\Http\Controllers\League\PlayerController;
 use App\Http\Controllers\League\PlayerCredentialController;
 use App\Http\Controllers\League\PlayerDocumentController;
+use App\Http\Controllers\League\RefereeController;
 use App\Http\Controllers\League\SettingsController;
 use App\Http\Controllers\League\TeamController;
 use Illuminate\Support\Facades\Route;
@@ -111,6 +112,15 @@ Route::middleware(['auth', 'active'])->group(function (): void {
                     Route::post('/canchas/{field}/bloqueos', 'storeBlock')->name('fields.blocks.store');
                     Route::delete('/bloqueos-campo/{block}', 'destroyBlock')->name('fields.blocks.destroy');
                 });
+            });
+            Route::controller(RefereeController::class)->middleware('permission:referees.view')->group(function (): void {
+                Route::get('/arbitros', 'index')->name('referees.index');
+                Route::post('/arbitros', 'store')->name('referees.store');
+                Route::post('/arbitros/{referee}/actualizar', 'update')->name('referees.update');
+                Route::post('/arbitros/{referee}/mi-perfil', 'updateOwn')->name('referees.own.update');
+                Route::post('/arbitros/{referee}/disponibilidades', 'storeAvailability')->name('referees.availabilities.store');
+                Route::delete('/disponibilidades-arbitro/{availability}', 'destroyAvailability')->name('referees.availabilities.destroy');
+                Route::post('/arbitros/{referee}/observaciones', 'storeObservation')->name('referees.observations.store');
             });
             Route::controller(PlayerController::class)->middleware('permission:players.view')->group(function (): void {
                 Route::get('/jugadores', 'index')->name('players.index');

@@ -65,6 +65,11 @@ class User extends Authenticatable
         return $this->hasMany(\App\Domain\Player\Models\Player::class);
     }
 
+    public function refereeProfiles(): HasMany
+    {
+        return $this->hasMany(\App\Domain\Referee\Models\Referee::class);
+    }
+
     public function hasRole(string $role): bool
     {
         return $this->roles()->where('slug', $role)->exists();

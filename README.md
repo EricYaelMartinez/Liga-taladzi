@@ -152,6 +152,14 @@ el margen opcional entre partidos configurado por la liga y queda preparada
 para integrarse con el calendario. Consulta `MODULO_8_VERIFICACION.md` para la
 prueba completa.
 
+## Módulo 9: árbitros y disponibilidad
+
+Los árbitros cuentan con un expediente ligado a su acceso de liga, fotografía,
+categoría, contacto, estado y disponibilidad recurrente. El administrador puede
+registrar observaciones internas que nunca se exponen al árbitro. La validación
+de disponibilidad queda preparada para las asignaciones del calendario del
+Módulo 10. Consulta `MODULO_9_VERIFICACION.md` para la prueba completa.
+
 ## Datos locales
 
 PostgreSQL y Redis utilizan volúmenes de Docker. `docker compose down` no elimina la información.
