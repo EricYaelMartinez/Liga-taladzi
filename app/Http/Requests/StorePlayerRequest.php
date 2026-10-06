@@ -32,7 +32,7 @@ class StorePlayerRequest extends FormRequest
             'guardian_name' => ['nullable', 'string', 'max:180'],
             'guardian_phone' => ['nullable', 'string', 'max:30'],
             'photo' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'guardian_consent' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:8192'],
+            'guardian_consent' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
             'team_participation_id' => ['required', 'integer'],
             'jersey_number' => ['required', 'integer', 'between:0,999'],
             'league_membership_id' => ['nullable', 'integer'],

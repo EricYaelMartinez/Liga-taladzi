@@ -51,6 +51,11 @@ class IdentitySeeder extends Seeder
             ['name' => 'Proponer altas y bajas de jugadores', 'slug' => 'players.propose', 'module' => 'player'],
             ['name' => 'Administrar y aprobar jugadores', 'slug' => 'players.manage', 'module' => 'player'],
             ['name' => 'Actualizar datos propios de jugador', 'slug' => 'players.self-update', 'module' => 'player'],
+            ['name' => 'Ver documentos privados de jugadores', 'slug' => 'documents.view', 'module' => 'document'],
+            ['name' => 'Administrar documentos privados de jugadores', 'slug' => 'documents.manage', 'module' => 'document'],
+            ['name' => 'Emitir y revocar credenciales', 'slug' => 'credentials.manage', 'module' => 'document'],
+            ['name' => 'Ver campos y disponibilidad', 'slug' => 'fields.view', 'module' => 'scheduling'],
+            ['name' => 'Administrar campos y disponibilidad', 'slug' => 'fields.manage', 'module' => 'scheduling'],
             ['name' => 'Ver bitácora', 'slug' => 'audit.view', 'module' => 'audit'],
         ];
 
@@ -79,6 +84,11 @@ class IdentitySeeder extends Seeder
             'players.propose',
             'players.manage',
             'players.self-update',
+            'documents.view',
+            'documents.manage',
+            'credentials.manage',
+            'fields.view',
+            'fields.manage',
             'audit.view',
         ])->pluck('id');
         Role::where('slug', 'league_admin')->firstOrFail()->permissions()->sync($leagueAdminPermissions);

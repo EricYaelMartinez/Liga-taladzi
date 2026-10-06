@@ -11,10 +11,12 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EnvironmentController;
 use App\Http\Controllers\League\AuditLogController;
 use App\Http\Controllers\League\CompetitionSetupController;
+use App\Http\Controllers\League\FieldController;
 use App\Http\Controllers\League\MembershipController;
 use App\Http\Controllers\League\OperationalSettingsController;
 use App\Http\Controllers\League\PlayerController;
 use App\Http\Controllers\League\PlayerCredentialController;
+use App\Http\Controllers\League\PlayerDocumentController;
 use App\Http\Controllers\League\SettingsController;
 use App\Http\Controllers\League\TeamController;
 use Illuminate\Support\Facades\Route;
@@ -97,6 +99,19 @@ Route::middleware(['auth', 'active'])->group(function (): void {
                     Route::get('/equipos/{team}/representante/{document}', 'representativeDocument')->name('teams.representative.document');
                 });
             });
+            Route::controller(FieldController::class)->middleware('permission:fields.view')->group(function (): void {
+                Route::get('/campos', 'index')->name('fields.index');
+                Route::middleware('permission:fields.manage')->group(function (): void {
+                    Route::post('/instalaciones', 'storeVenue')->name('venues.store');
+                    Route::put('/instalaciones/{venue}', 'updateVenue')->name('venues.update');
+                    Route::post('/instalaciones/{venue}/canchas', 'storeField')->name('fields.store');
+                    Route::put('/canchas/{field}', 'updateField')->name('fields.update');
+                    Route::post('/canchas/{field}/disponibilidades', 'storeAvailability')->name('fields.availabilities.store');
+                    Route::delete('/disponibilidades-campo/{availability}', 'destroyAvailability')->name('fields.availabilities.destroy');
+                    Route::post('/canchas/{field}/bloqueos', 'storeBlock')->name('fields.blocks.store');
+                    Route::delete('/bloqueos-campo/{block}', 'destroyBlock')->name('fields.blocks.destroy');
+                });
+            });
             Route::controller(PlayerController::class)->middleware('permission:players.view')->group(function (): void {
                 Route::get('/jugadores', 'index')->name('players.index');
                 Route::post('/jugadores/{player}/datos', 'updateProfile')->middleware('permission:players.self-update')->name('players.profile.update');
@@ -114,6 +129,15 @@ Route::middleware(['auth', 'active'])->group(function (): void {
             Route::controller(PlayerCredentialController::class)->middleware('permission:players.manage')->group(function (): void {
                 Route::get('/plantillas/{participation}/credenciales', 'preview')->name('players.credentials.preview');
                 Route::get('/plantillas/{participation}/credenciales.pdf', 'download')->name('players.credentials.download');
+                Route::post('/plantillas/{participation}/credenciales/emitir', 'issueMissing')->middleware('permission:credentials.manage')->name('players.credentials.issue');
+                Route::put('/credenciales/{credential}/revocar', 'revoke')->middleware('permission:credentials.manage')->name('players.credentials.revoke');
+            });
+            Route::controller(PlayerDocumentController::class)->middleware(['permission:documents.view'])->group(function (): void {
+                Route::get('/documentos-jugador/{document}', 'download')->name('players.documents.download');
+                Route::middleware('permission:documents.manage')->group(function (): void {
+                    Route::post('/jugadores/{player}/carta-responsiva', 'storeGuardianConsent')->name('players.documents.guardian.store');
+                    Route::delete('/documentos-jugador/{document}', 'destroy')->name('players.documents.destroy');
+                });
             });
         });
     });

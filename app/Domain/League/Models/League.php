@@ -73,6 +73,11 @@ class League extends Model
         return $this->hasMany(\App\Domain\Player\Models\Player::class);
     }
 
+    public function venues(): HasMany
+    {
+        return $this->hasMany(\App\Domain\Scheduling\Models\Venue::class);
+    }
+
     public function isActive(): bool
     {
         return $this->status === LeagueStatus::Active;

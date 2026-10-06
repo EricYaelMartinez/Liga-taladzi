@@ -11,6 +11,8 @@ use App\Domain\Team\Models\Team;
 use App\Domain\Team\Models\TeamParticipation;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class PlayerRegistration extends Model
 {
@@ -33,4 +35,6 @@ class PlayerRegistration extends Model
     public function division(): BelongsTo { return $this->belongsTo(Division::class); }
     public function requester(): BelongsTo { return $this->belongsTo(User::class, 'requested_by'); }
     public function reviewer(): BelongsTo { return $this->belongsTo(User::class, 'reviewed_by'); }
+    public function credentials(): HasMany { return $this->hasMany(PlayerCredential::class); }
+    public function activeCredential(): HasOne { return $this->hasOne(PlayerCredential::class)->where('status', 'active'); }
 }

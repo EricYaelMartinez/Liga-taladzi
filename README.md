@@ -130,6 +130,28 @@ solicitados por el representante quedan pendientes de revisión. Las fotografía
 e INE del propietario se guardan en almacenamiento privado. Consulta
 `MODULO_5_VERIFICACION.md` para realizar la prueba completa.
 
+## Módulo 6: jugadores y plantillas
+
+El expediente del jugador, sus altas, bajas, transferencias e historial se
+conservan por temporada. Las credenciales físicas se generan por equipo con el
+diseño y los logotipos configurados por la liga. Consulta
+`MODULO_6_VERIFICACION.md` para realizar la prueba completa.
+
+## Módulo 7: documentos y credenciales
+
+Las credenciales tienen folio único, estado de emisión y revocación. Los
+documentos de menores permanecen privados, admiten PDF/JPG/PNG de hasta 5 MB,
+respetan su periodo de retención y registran accesos sensibles en la bitácora.
+Consulta `MODULO_7_VERIFICACION.md` para realizar la prueba completa.
+
+## Módulo 8: campos y disponibilidad
+
+Las instalaciones pueden contener varias canchas con horarios recurrentes,
+bloqueos por mantenimiento y divisiones recomendadas. La validación considera
+el margen opcional entre partidos configurado por la liga y queda preparada
+para integrarse con el calendario. Consulta `MODULO_8_VERIFICACION.md` para la
+prueba completa.
+
 ## Datos locales
 
 PostgreSQL y Redis utilizan volúmenes de Docker. `docker compose down` no elimina la información.

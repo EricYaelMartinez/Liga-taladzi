@@ -7,6 +7,7 @@ use App\Domain\Player\Enums\PlayerStatus;
 use App\Domain\Player\Enums\RegistrationStatus;
 use App\Domain\Player\Models\Player;
 use App\Domain\Player\Models\PlayerRegistration;
+use App\Domain\Player\Services\PlayerCredentialService;
 use App\Domain\Team\Models\TeamParticipation;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LinkPlayerUserRequest;
@@ -35,6 +36,7 @@ class PlayerController extends Controller
     public function __construct(
         private readonly LeagueContext $context,
         private readonly AuditLogger $audit,
+        private readonly PlayerCredentialService $credentials,
     ) {
     }
 
@@ -53,12 +55,13 @@ class PlayerController extends Controller
             ->when($isPlayer, fn (Builder $query) => $query->where('user_id', $request->user()->id))
             ->with([
                 'user:id,name,email',
-                'documents:id,player_id,type,retain_until',
+                'documents:id,player_id,type,original_name,mime_type,size_bytes,retain_until,created_at',
                 'registrations' => fn ($query) => $query->with([
                     'team:id,name,short_name',
                     'teamParticipation.competition.tournament.season:id,name,starts_on,ends_on',
                     'teamParticipation.competition.division:id,name',
                     'teamParticipation.competition.category:id,name',
+                    'activeCredential:id,player_registration_id,folio,status,issued_at',
                 ])->latest('requested_at'),
                 'movements' => fn ($query) => $query->with(['fromTeam:id,name', 'toTeam:id,name'])->latest('occurred_at'),
             ])->orderBy('full_name')->get();
@@ -121,6 +124,9 @@ class PlayerController extends Controller
                     $documentPath = $this->storePrivate($request->file('guardian_consent'), "players/{$player->id}/documents", $stored);
                     $player->documents()->create([
                         'type' => 'guardian_consent', 'path' => $documentPath,
+                        'original_name' => $request->file('guardian_consent')->getClientOriginalName(),
+                        'mime_type' => $request->file('guardian_consent')->getMimeType(),
+                        'size_bytes' => $request->file('guardian_consent')->getSize(),
                         'retain_until' => $participation->season->ends_on,
                         'uploaded_by' => $request->user()->id,
                     ]);
@@ -157,7 +163,7 @@ class PlayerController extends Controller
     public function transition(TransitionPlayerRegistrationRequest $request, PlayerRegistration $registration): RedirectResponse
     {
         $league = $this->league($request);
-        $registration->load(['player', 'team']);
+        $registration->load(['player', 'team', 'season']);
         $this->assertPlayer($registration->player, $league);
         $action = $request->validated('action');
         $current = $registration->status->value;
@@ -168,9 +174,18 @@ class PlayerController extends Controller
             'rejected' => [], 'released' => [],
         ][$current][$action] ?? null;
         if (! $target) throw ValidationException::withMessages(['action' => 'Esta transición no está permitida.']);
+        if ($target === 'active') $this->assertMinorConsent($registration);
 
         DB::transaction(function () use ($request, $registration, $league, $current, $target): void {
             $this->applyTransition($request, $registration, $target, $request->string('reason')->toString());
+            if ($target === 'active') {
+                $credential = $this->credentials->issue($registration, $request->user());
+                $this->audit->log($request, 'player.credential.issued', $credential, $league, [], ['folio' => $credential->folio]);
+            }
+            if ($target === 'released') {
+                $credential = $this->credentials->revoke($registration, $request->user(), $request->string('reason')->toString());
+                if ($credential) $this->audit->log($request, 'player.credential.revoked', $credential, $league, ['status' => 'active'], ['status' => 'revoked'], $request->string('reason')->toString());
+            }
             $this->audit->log($request, 'player.registration.status_changed', $registration, $league, ['status' => $current], ['status' => $target], $request->string('reason')->toString());
         });
         return back()->with('success', 'Estado del jugador actualizado.');
@@ -190,6 +205,8 @@ class PlayerController extends Controller
 
         DB::transaction(function () use ($request, $registration, $league, $data): void {
             $this->applyTransition($request, $registration, 'released', $data['reason']);
+            $credential = $this->credentials->revoke($registration, $request->user(), $data['reason']);
+            if ($credential) $this->audit->log($request, 'player.credential.revoked', $credential, $league, ['status' => 'active'], ['status' => 'revoked'], $data['reason']);
             $this->audit->log($request, 'player.registration.released', $registration, $league, [], ['status' => 'released'], $data['reason']);
         });
         return back()->with('success', 'La baja fue registrada; el jugador puede incorporarse a otro equipo.');
@@ -227,6 +244,7 @@ class PlayerController extends Controller
             default => null,
         };
         abort_unless($path && Storage::disk('local')->exists($path), 404);
+        $this->audit->log($request, $document === 'photo' ? 'player.photo.downloaded' : 'player.document.downloaded', $player, $league, [], ['document' => $document]);
         return Storage::disk('local')->download($path);
     }
 
@@ -301,6 +319,10 @@ class PlayerController extends Controller
             ->withCount(['playerRegistrations as active_players_count' => fn ($query) => $query
                 ->where('status', 'active')
                 ->whereHas('player', fn ($player) => $player->where('status', 'active'))])
+            ->withCount(['playerRegistrations as issued_credentials_count' => fn ($query) => $query
+                ->where('status', 'active')
+                ->whereHas('player', fn ($player) => $player->where('status', 'active'))
+                ->whereHas('activeCredential')])
             ->get()
             ->sortBy(fn (TeamParticipation $participation) => Str::lower($participation->team->name).'|'.$participation->season->starts_on)
             ->values();
@@ -360,6 +382,20 @@ class PlayerController extends Controller
     {
         if ($player->registrations()->where('season_id', $seasonId)->whereIn('status', ['pending', 'active', 'suspended'])->exists()) {
             throw ValidationException::withMessages(['player_id' => 'El jugador ya pertenece a un equipo en esta temporada.']);
+        }
+    }
+
+    private function assertMinorConsent(PlayerRegistration $registration): void
+    {
+        $minorAtSeasonStart = (int) $registration->player->birth_date->diffInYears($registration->season->starts_on) < 18;
+        if (! $minorAtSeasonStart) return;
+
+        $hasValidConsent = $registration->player->documents()
+            ->where('type', 'guardian_consent')
+            ->whereDate('retain_until', '>=', $registration->season->ends_on)
+            ->exists();
+        if (! $hasValidConsent) {
+            throw ValidationException::withMessages(['document' => 'Debes cargar una carta responsiva vigente antes de aprobar al jugador menor.']);
         }
     }
 

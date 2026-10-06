@@ -12,7 +12,9 @@
     "validate:module3": "node scripts/validate-module3.mjs",
     "validate:module4": "node scripts/validate-module4.mjs",
     "validate:module5": "node scripts/validate-module5.mjs",
-    "validate:module6": "node scripts/validate-module6.mjs"
+    "validate:module6": "node scripts/validate-module6.mjs",
+    "validate:module7": "node scripts/validate-module7.mjs",
+    "validate:module8": "node scripts/validate-module8.mjs"
   },
   "dependencies": {
     "@inertiajs/vue3": "^2.0.0",

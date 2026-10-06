@@ -12,6 +12,7 @@ type Registration = {
     id: number; jersey_number: number; status: string; review_reason: string | null; released_at: string | null;
     team: { id: number; name: string; short_name: string };
     team_participation: Participation;
+    active_credential: { id: number; folio: string; status: string; issued_at: string } | null;
 };
 type Movement = { id: number; type: string; reason: string; occurred_at: string; from_team: { id: number; name: string } | null; to_team: { id: number; name: string } | null };
 type Player = {
@@ -19,12 +20,13 @@ type Player = {
     phone?: string | null; email?: string | null; emergency_contact_name?: string; emergency_contact_phone?: string;
     emergency_contact_relationship?: string; guardian_name?: string | null; guardian_phone?: string | null;
     status: string; user: { id: number; name: string; email: string } | null;
-    documents: { id: number; type: string; retain_until: string | null }[]; registrations: Registration[]; movements: Movement[];
+    documents: { id: number; type: string; original_name: string | null; mime_type: string | null; size_bytes: number | null; retain_until: string | null; created_at: string }[]; registrations: Registration[]; movements: Movement[];
 };
 type Membership = { id: number; user_id: number; user: { id: number; name: string; email: string } };
 type AvailablePlayer = { id: number; full_name: string; birth_date: string; position: string };
 type CredentialParticipation = Participation & {
     active_players_count: number;
+    issued_credentials_count: number;
     season: { id: number; name: string; starts_on: string; ends_on: string };
 };
 
@@ -37,6 +39,7 @@ const activeTab = ref(props.isPlayer ? 'players' : 'summary');
 const existingPlayer = ref<AvailablePlayer | null>(null);
 const linkingPlayer = ref<Player | null>(null);
 const editingPlayer = ref<Player | null>(null);
+const documentPlayer = ref<Player | null>(null);
 
 const createForm = useForm({
     full_name: '', birth_date: '', gender: 'unspecified', position: 'midfielder', phone: '', email: '',
@@ -48,6 +51,7 @@ const createForm = useForm({
 const registrationForm = useForm({ team_participation_id: null as number | null, jersey_number: null as number | null, reason: '' });
 const linkForm = useForm({ league_membership_id: null as number | null, reason: '' });
 const profileForm = useForm({ phone: '', email: '', emergency_contact_name: '', emergency_contact_phone: '', emergency_contact_relationship: '', reason: '' });
+const documentForm = useForm({ document: null as File | null, reason: '' });
 
 const tabs = computed(() => {
     if (props.isPlayer) return [['players', 'Mi perfil']];
@@ -93,15 +97,33 @@ function submitProfile() {
     if (!editingPlayer.value) return;
     profileForm.post(`/liga/jugadores/${editingPlayer.value.id}/datos`, { preserveScroll: true, onSuccess: () => { editingPlayer.value = null; profileForm.reset(); } });
 }
+function issueCredentials(participation: CredentialParticipation) {
+    const reason = prompt('Motivo de la emisión de credenciales:');
+    if (reason?.trim()) router.post(`/liga/plantillas/${participation.id}/credenciales/emitir`, { reason }, { preserveScroll: true });
+}
+function revokeCredential(registration: Registration) {
+    if (!registration.active_credential) return;
+    const reason = prompt(`Motivo para revocar ${registration.active_credential.folio}:`);
+    if (reason?.trim() && confirm('La credencial dejará de ser válida. ¿Continuar?')) router.put(`/liga/credenciales/${registration.active_credential.id}/revocar`, { reason }, { preserveScroll: true });
+}
+function submitDocument() {
+    if (!documentPlayer.value) return;
+    documentForm.post(`/liga/jugadores/${documentPlayer.value.id}/carta-responsiva`, { forceFormData: true, preserveScroll: true, onSuccess: () => { documentPlayer.value = null; documentForm.reset(); } });
+}
+function deleteDocument(document: Player['documents'][number]) {
+    const reason = prompt('Motivo de eliminación del documento:');
+    if (reason?.trim() && confirm('El archivo privado se eliminará definitivamente. ¿Continuar?')) router.delete(`/liga/documentos-jugador/${document.id}`, { data: { reason }, preserveScroll: true });
+}
+function retentionExpired(document: Player['documents'][number]): boolean { return !!document.retain_until && new Date(`${document.retain_until.slice(0, 10)}T23:59:59`) < new Date(); }
 </script>
 
 <template>
     <Head title="Jugadores y plantillas" />
     <AppLayout>
         <section>
-            <p class="text-sm font-semibold uppercase tracking-[0.18em] text-league-600">Módulo 6</p>
-            <h1 class="mt-1 text-3xl font-semibold">Jugadores y plantillas</h1>
-            <p class="mt-2 text-slate-600">Gestiona altas, dorsales, documentos privados, bajas e historial deportivo.</p>
+            <p class="text-sm font-semibold uppercase tracking-[0.18em] text-league-600">Módulos 6 y 7</p>
+            <h1 class="mt-1 text-3xl font-semibold">Jugadores, documentos y credenciales</h1>
+            <p class="mt-2 text-slate-600">Gestiona altas, documentos privados, folios, credenciales y su historial.</p>
 
             <div class="mt-7 overflow-x-auto border-b border-slate-200"><div class="flex min-w-max gap-1">
                 <button v-for="tab in tabs" :key="tab[0]" type="button" class="rounded-t-xl px-4 py-3 text-sm font-semibold" :class="activeTab === tab[0] ? 'bg-league-700 text-white' : 'text-slate-600 hover:bg-slate-200'" @click="activeTab = tab[0]">{{ tab[1] }}</button>
@@ -134,10 +156,12 @@ function submitProfile() {
                             <h3 class="mt-1 text-xl font-semibold">{{ participation.team.name }}</h3>
                             <p class="mt-1 text-sm text-slate-600">{{ participation.competition.name }} · {{ participation.competition.category.name }} · {{ participation.competition.division.name }}</p>
                             <p class="mt-3 text-sm font-medium" :class="participation.active_players_count ? 'text-emerald-700' : 'text-amber-700'">{{ participation.active_players_count }} jugador{{ participation.active_players_count === 1 ? '' : 'es' }} activo{{ participation.active_players_count === 1 ? '' : 's' }} y aprobado{{ participation.active_players_count === 1 ? '' : 's' }}</p>
+                            <p v-if="participation.active_players_count" class="mt-1 text-xs text-slate-500">{{ participation.issued_credentials_count }} de {{ participation.active_players_count }} credenciales emitidas</p>
                         </div>
                         <div class="flex shrink-0 flex-wrap gap-2">
-                            <a v-if="participation.active_players_count" :href="`/liga/plantillas/${participation.id}/credenciales`" target="_blank" rel="noopener" class="btn-secondary">Vista previa</a>
-                            <a v-if="participation.active_players_count" :href="`/liga/plantillas/${participation.id}/credenciales.pdf`" class="btn-primary">Descargar PDF</a>
+                            <button v-if="participation.issued_credentials_count < participation.active_players_count" class="btn-secondary" @click="issueCredentials(participation)">Emitir faltantes</button>
+                            <a v-if="participation.issued_credentials_count" :href="`/liga/plantillas/${participation.id}/credenciales`" target="_blank" rel="noopener" class="btn-secondary">Vista previa</a>
+                            <a v-if="participation.issued_credentials_count" :href="`/liga/plantillas/${participation.id}/credenciales.pdf`" class="btn-primary">Descargar PDF</a>
                             <span v-else class="rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-500">Sin credenciales</span>
                         </div>
                     </article>
@@ -160,9 +184,10 @@ function submitProfile() {
             <div v-if="activeTab === 'players'" class="mt-7 space-y-5">
                 <div v-if="!players.length" class="card p-12 text-center text-slate-600">No hay jugadores disponibles para este acceso.</div>
                 <article v-for="player in players" :key="player.id" class="card overflow-hidden">
-                    <div class="flex flex-col justify-between gap-5 p-6 lg:flex-row"><div><div class="flex flex-wrap items-center gap-3"><h2 class="text-xl font-semibold">{{ player.full_name }}</h2><span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold">{{ labels[player.status] }}</span></div><p class="mt-2 text-sm text-slate-600">{{ positions[player.position] }}<span v-if="player.birth_date"> · {{ age(player.birth_date) }} años</span></p><p v-if="player.user" class="mt-1 text-xs text-emerald-700">Cuenta vinculada: {{ player.user.email }}</p><p v-else-if="canManage" class="mt-1 text-xs text-amber-700">Jugador sin acceso al sistema</p></div><div class="flex flex-wrap content-start gap-2"><button v-if="canManage || isPlayer" class="btn-secondary" @click="startProfile(player)">Actualizar contacto</button><template v-if="canManage"><a :href="`/liga/jugadores/${player.id}/archivo/photo`" class="btn-secondary">Fotografía privada</a><a v-if="player.documents.some((document) => document.type === 'guardian_consent')" :href="`/liga/jugadores/${player.id}/archivo/guardian-consent`" class="btn-secondary">Carta responsiva</a><button v-if="!player.user_id && playerMemberships.length" class="btn-secondary" @click="linkingPlayer = player">Vincular cuenta</button></template></div></div>
-                    <div v-if="isPlayer" class="mx-5 mb-5 rounded-2xl border-2 border-league-700 bg-white p-5 shadow-sm print:m-0 print:shadow-none"><div class="flex items-start justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-[0.2em] text-league-600">Credencial digital</p><h3 class="mt-2 text-2xl font-bold text-league-900">{{ player.full_name }}</h3><p class="mt-1 text-sm text-slate-600">{{ currentRegistration(player)?.team.name ?? 'Sin equipo activo' }} · Dorsal #{{ currentRegistration(player)?.jersey_number ?? '—' }}</p><p class="mt-3 text-sm font-semibold">Estado: {{ labels[player.status] }}</p></div><button type="button" class="btn-secondary print:hidden" @click="printCredential">Imprimir</button></div><p class="mt-4 border-t border-slate-200 pt-3 text-xs text-slate-500">Credencial sin QR. La fotografía y documentos permanecen privados para administración.</p></div>
-                    <div class="border-t border-slate-200 bg-slate-50 p-5"><h3 class="text-sm font-semibold">Historial de plantillas</h3><div class="mt-3 space-y-3"><div v-for="registration in player.registrations" :key="registration.id" class="flex flex-col justify-between gap-3 rounded-xl bg-white p-4 sm:flex-row sm:items-center"><div><p class="font-medium">#{{ registration.jersey_number }} · {{ registration.team.name }}</p><p class="mt-1 text-xs text-slate-500">{{ registration.team_participation.competition.tournament.season.name }} · {{ registration.team_participation.competition.name }} · {{ labels[registration.status] }}</p></div><div class="flex flex-wrap gap-2"><template v-if="canManage"><button v-if="registration.status === 'pending'" class="btn-primary" @click="transition(registration, 'approve', 'Aprobar')">Aprobar</button><button v-if="registration.status === 'pending'" class="btn-danger" @click="transition(registration, 'reject', 'Rechazar')">Rechazar</button><button v-if="registration.status === 'active'" class="btn-danger" @click="transition(registration, 'suspend', 'Suspender')">Suspender</button><button v-if="registration.status === 'suspended'" class="btn-primary" @click="transition(registration, 'reactivate', 'Reactivar')">Reactivar</button></template><button v-if="['active', 'suspended'].includes(registration.status)" class="btn-secondary" @click="release(registration)">Registrar baja</button></div></div></div></div>
+                    <div class="flex flex-col justify-between gap-5 p-6 lg:flex-row"><div><div class="flex flex-wrap items-center gap-3"><h2 class="text-xl font-semibold">{{ player.full_name }}</h2><span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold">{{ labels[player.status] }}</span></div><p class="mt-2 text-sm text-slate-600">{{ positions[player.position] }}<span v-if="player.birth_date"> · {{ age(player.birth_date) }} años</span></p><p v-if="player.user" class="mt-1 text-xs text-emerald-700">Cuenta vinculada: {{ player.user.email }}</p><p v-else-if="canManage" class="mt-1 text-xs text-amber-700">Jugador sin acceso al sistema</p></div><div class="flex flex-wrap content-start gap-2"><button v-if="canManage || isPlayer" class="btn-secondary" @click="startProfile(player)">Actualizar contacto</button><template v-if="canManage"><a :href="`/liga/jugadores/${player.id}/archivo/photo`" class="btn-secondary">Fotografía privada</a><button v-if="player.birth_date && age(player.birth_date) < 18" class="btn-secondary" @click="documentPlayer = player">Subir carta</button><button v-if="!player.user_id && playerMemberships.length" class="btn-secondary" @click="linkingPlayer = player">Vincular cuenta</button></template></div></div>
+                    <div v-if="canManage && player.documents.length" class="mx-6 mb-5 rounded-xl border border-slate-200 p-4"><h3 class="text-sm font-semibold">Documentos privados</h3><div class="mt-3 space-y-2"><div v-for="document in player.documents" :key="document.id" class="flex flex-col justify-between gap-2 text-sm sm:flex-row sm:items-center"><div><span class="font-medium">Carta responsiva</span><span class="text-slate-500"> · conservar hasta {{ document.retain_until ?? 'sin fecha' }}</span></div><div class="flex gap-2"><a :href="`/liga/documentos-jugador/${document.id}`" class="text-league-700 underline">Descargar</a><button v-if="retentionExpired(document)" class="text-red-700 underline" @click="deleteDocument(document)">Eliminar</button></div></div></div></div>
+                    <div v-if="isPlayer" class="mx-5 mb-5 rounded-2xl border-2 border-league-700 bg-white p-5 shadow-sm print:m-0 print:shadow-none"><div class="flex items-start justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-[0.2em] text-league-600">Credencial digital</p><h3 class="mt-2 text-2xl font-bold text-league-900">{{ player.full_name }}</h3><p class="mt-1 text-sm text-slate-600">{{ currentRegistration(player)?.team.name ?? 'Sin equipo activo' }} · Dorsal #{{ currentRegistration(player)?.jersey_number ?? '—' }}</p><p v-if="currentRegistration(player)?.active_credential" class="mt-2 text-sm font-semibold text-league-800">Folio: {{ currentRegistration(player)?.active_credential?.folio }}</p><p class="mt-3 text-sm font-semibold">Estado: {{ labels[player.status] }}</p></div><button type="button" class="btn-secondary print:hidden" @click="printCredential">Imprimir</button></div><p class="mt-4 border-t border-slate-200 pt-3 text-xs text-slate-500">Credencial sin QR. La fotografía y documentos permanecen privados para administración.</p></div>
+                    <div class="border-t border-slate-200 bg-slate-50 p-5"><h3 class="text-sm font-semibold">Historial de plantillas</h3><div class="mt-3 space-y-3"><div v-for="registration in player.registrations" :key="registration.id" class="flex flex-col justify-between gap-3 rounded-xl bg-white p-4 sm:flex-row sm:items-center"><div><p class="font-medium">#{{ registration.jersey_number }} · {{ registration.team.name }}</p><p class="mt-1 text-xs text-slate-500">{{ registration.team_participation.competition.tournament.season.name }} · {{ registration.team_participation.competition.name }} · {{ labels[registration.status] }}</p><p v-if="registration.active_credential" class="mt-1 text-xs font-semibold text-emerald-700">Credencial {{ registration.active_credential.folio }}</p></div><div class="flex flex-wrap gap-2"><template v-if="canManage"><button v-if="registration.status === 'pending'" class="btn-primary" @click="transition(registration, 'approve', 'Aprobar')">Aprobar</button><button v-if="registration.status === 'pending'" class="btn-danger" @click="transition(registration, 'reject', 'Rechazar')">Rechazar</button><button v-if="registration.status === 'active'" class="btn-danger" @click="transition(registration, 'suspend', 'Suspender')">Suspender</button><button v-if="registration.status === 'suspended'" class="btn-primary" @click="transition(registration, 'reactivate', 'Reactivar')">Reactivar</button><button v-if="registration.active_credential" class="btn-secondary" @click="revokeCredential(registration)">Revocar credencial</button></template><button v-if="['active', 'suspended'].includes(registration.status)" class="btn-secondary" @click="release(registration)">Registrar baja</button></div></div></div></div>
                 </article>
             </div>
 
@@ -176,5 +201,7 @@ function submitProfile() {
         <div v-if="linkingPlayer && canManage" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4" @click.self="linkingPlayer = null"><form class="w-full max-w-xl rounded-2xl bg-white p-6" @submit.prevent="submitLink"><h2 class="text-xl font-semibold">Vincular cuenta</h2><p class="mt-1 text-sm text-slate-500">{{ linkingPlayer.full_name }}</p><div class="mt-5 space-y-4"><div><label class="form-label">Usuario con rol Jugador</label><select v-model="linkForm.league_membership_id" class="form-input" required><option :value="null" disabled>Selecciona</option><option v-for="membership in playerMemberships" :key="membership.id" :value="membership.id">{{ membership.user.name }} · {{ membership.user.email }}</option></select></div><div><label class="form-label">Motivo</label><textarea v-model="linkForm.reason" class="form-input" required maxlength="500"></textarea></div></div><div class="mt-6 flex justify-end gap-3"><button type="button" class="btn-secondary" @click="linkingPlayer = null">Cancelar</button><button class="btn-primary" :disabled="linkForm.processing">Vincular</button></div></form></div>
 
         <div v-if="editingPlayer" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4" @click.self="editingPlayer = null"><form class="w-full max-w-2xl rounded-2xl bg-white p-6" @submit.prevent="submitProfile"><h2 class="text-xl font-semibold">Actualizar datos de contacto</h2><p class="mt-1 text-sm text-slate-500">{{ editingPlayer.full_name }}</p><div class="mt-5 grid gap-4 sm:grid-cols-2"><div><label class="form-label">Teléfono</label><input v-model="profileForm.phone" class="form-input"></div><div><label class="form-label">Correo</label><input v-model="profileForm.email" class="form-input" type="email"></div><div><label class="form-label">Contacto de emergencia</label><input v-model="profileForm.emergency_contact_name" class="form-input" required></div><div><label class="form-label">Teléfono de emergencia</label><input v-model="profileForm.emergency_contact_phone" class="form-input" required></div><div><label class="form-label">Parentesco</label><input v-model="profileForm.emergency_contact_relationship" class="form-input" required></div><div><label class="form-label">Motivo</label><input v-model="profileForm.reason" class="form-input" required maxlength="500"></div></div><div class="mt-6 flex justify-end gap-3"><button type="button" class="btn-secondary" @click="editingPlayer = null">Cancelar</button><button class="btn-primary" :disabled="profileForm.processing">Guardar</button></div></form></div>
+
+        <div v-if="documentPlayer" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4" @click.self="documentPlayer = null"><form class="w-full max-w-xl rounded-2xl bg-white p-6" @submit.prevent="submitDocument"><h2 class="text-xl font-semibold">Subir carta responsiva</h2><p class="mt-1 text-sm text-slate-500">{{ documentPlayer.full_name }} · archivo privado de hasta 5 MB</p><div class="mt-5 space-y-4"><div><label class="form-label">PDF, JPG o PNG</label><input class="form-input" type="file" required accept="application/pdf,image/jpeg,image/png" @change="documentForm.document = file($event)"><FormError :message="documentForm.errors.document" /></div><div><label class="form-label">Motivo</label><textarea v-model="documentForm.reason" class="form-input" required maxlength="500"></textarea></div></div><div class="mt-6 flex justify-end gap-3"><button type="button" class="btn-secondary" @click="documentPlayer = null">Cancelar</button><button class="btn-primary" :disabled="documentForm.processing">Guardar documento</button></div></form></div>
     </AppLayout>
 </template>

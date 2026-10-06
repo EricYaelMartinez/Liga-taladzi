@@ -14,6 +14,8 @@ use App\Domain\League\Models\League;
 use App\Domain\League\Models\LeagueMembership;
 use App\Domain\Player\Models\Player;
 use App\Domain\Player\Models\PlayerRegistration;
+use App\Domain\Player\Models\PlayerCredential;
+use App\Domain\Player\Models\PlayerDocument;
 use App\Domain\Team\Models\Team;
 use App\Domain\Team\Models\TeamParticipation;
 use App\Domain\Team\Models\TeamRepresentative;
@@ -125,11 +127,16 @@ class PlayerManagementTest extends TestCase
             ->put("/liga/plantillas/{$registration->id}/estado", ['action' => 'approve', 'reason' => 'Documentación correcta'])
             ->assertSessionHasNoErrors();
         $this->assertSame('active', $registration->fresh()->status->value);
+        $credential = PlayerCredential::where('player_registration_id', $registration->id)->firstOrFail();
+        $this->assertSame('active', $credential->status->value);
+        $this->assertMatchesRegularExpression('/^L\d{4}-2027-\d{6}$/', $credential->folio);
 
         $this->actingAs($administrator)->withSession($session)
             ->put("/liga/plantillas/{$registration->id}/baja", ['reason' => 'Baja solicitada'])
             ->assertSessionHasNoErrors();
         $this->assertSame('released', $registration->fresh()->status->value);
+        $this->assertSame('revoked', $credential->fresh()->status->value);
+        $this->assertNotNull($credential->fresh()->revoked_at);
         $this->assertDatabaseHas('player_movements', ['player_id' => $registration->player_id, 'type' => 'approved']);
         $this->assertDatabaseHas('player_movements', ['player_id' => $registration->player_id, 'type' => 'released']);
     }
@@ -219,6 +226,72 @@ class PlayerManagementTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_administrator_issues_missing_credentials_without_duplicates(): void
+    {
+        [$administrator, , $league, $participation] = $this->scenario();
+        $player = $this->player($league, 'Jugador Con Folio');
+        PlayerRegistration::create(['player_id' => $player->id, 'team_id' => $participation->team_id, 'team_participation_id' => $participation->id, 'competition_id' => $participation->competition_id, 'season_id' => $participation->season_id, 'division_id' => $participation->division_id, 'jersey_number' => 18, 'status' => 'active', 'requested_at' => now()]);
+        $session = $this->leagueSession($league, $this->adminRole);
+
+        $this->actingAs($administrator)->withSession($session)
+            ->post("/liga/plantillas/{$participation->id}/credenciales/emitir", ['reason' => 'Emisión inicial'])
+            ->assertSessionHasNoErrors();
+        $this->actingAs($administrator)->withSession($session)
+            ->post("/liga/plantillas/{$participation->id}/credenciales/emitir", ['reason' => 'Verificación'])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(1, PlayerCredential::count());
+        $this->assertDatabaseHas('audit_logs', ['action' => 'player.credential.issued']);
+    }
+
+    public function test_private_guardian_document_is_validated_audited_and_retained(): void
+    {
+        [$administrator, $representative, $league, $participation] = $this->scenario();
+        $player = $this->player($league, 'Jugador Menor Documento');
+        $player->update(['birth_date' => now()->subYears(15)->toDateString()]);
+        $this->registration($player, $participation, 'pending', 22);
+        $session = $this->leagueSession($league, $this->adminRole);
+
+        $this->actingAs($administrator)->withSession($session)
+            ->post("/liga/jugadores/{$player->id}/carta-responsiva", [
+                'document' => UploadedFile::fake()->create('carta.pdf', 100, 'application/pdf'),
+                'reason' => 'Documento actualizado',
+            ])->assertSessionHasNoErrors();
+        $document = PlayerDocument::firstOrFail();
+        $this->assertSame('carta.pdf', $document->original_name);
+        $this->assertSame($participation->season->ends_on->toDateString(), $document->retain_until->toDateString());
+
+        $this->actingAs($representative)->withSession($this->leagueSession($league, $this->representativeRole))
+            ->get("/liga/documentos-jugador/{$document->id}")->assertForbidden();
+        $this->actingAs($administrator)->withSession($session)
+            ->get("/liga/documentos-jugador/{$document->id}")->assertOk();
+        $this->assertDatabaseHas('audit_logs', ['action' => 'player.document.downloaded', 'auditable_id' => $document->id]);
+
+        $this->actingAs($administrator)->withSession($session)
+            ->delete("/liga/documentos-jugador/{$document->id}", ['reason' => 'Depuración'])
+            ->assertSessionHasErrors('document');
+        $document->update(['retain_until' => now()->subDay()]);
+        $this->actingAs($administrator)->withSession($session)
+            ->delete("/liga/documentos-jugador/{$document->id}", ['reason' => 'Retención concluida'])
+            ->assertSessionHasNoErrors();
+        $this->assertSoftDeleted('player_documents', ['id' => $document->id]);
+        Storage::disk('local')->assertMissing($document->getRawOriginal('path'));
+    }
+
+    public function test_guardian_document_rejects_files_larger_than_five_megabytes(): void
+    {
+        [$administrator, , $league, $participation] = $this->scenario();
+        $player = $this->player($league, 'Jugador Archivo Grande');
+        $player->update(['birth_date' => now()->subYears(14)->toDateString()]);
+        $this->registration($player, $participation, 'pending', 23);
+
+        $this->actingAs($administrator)->withSession($this->leagueSession($league, $this->adminRole))
+            ->post("/liga/jugadores/{$player->id}/carta-responsiva", [
+                'document' => UploadedFile::fake()->create('carta.pdf', 5121, 'application/pdf'),
+                'reason' => 'Prueba de límite',
+            ])->assertSessionHasErrors('document');
+    }
+
     private function scenario(): array
     {
         $league = League::create(['name' => 'Liga Taladzi', 'slug' => 'liga-taladzi', 'primary_color' => '#125444', 'secondary_color' => '#d9a928', 'status' => 'active']);
@@ -272,7 +345,12 @@ class PlayerManagementTest extends TestCase
 
     private function registration(Player $player, TeamParticipation $participation, string $status, int $jersey): PlayerRegistration
     {
-        return PlayerRegistration::create(['player_id' => $player->id, 'team_id' => $participation->team_id, 'team_participation_id' => $participation->id, 'competition_id' => $participation->competition_id, 'season_id' => $participation->season_id, 'division_id' => $participation->division_id, 'jersey_number' => $jersey, 'status' => $status, 'requested_at' => now()]);
+        $registration = PlayerRegistration::create(['player_id' => $player->id, 'team_id' => $participation->team_id, 'team_participation_id' => $participation->id, 'competition_id' => $participation->competition_id, 'season_id' => $participation->season_id, 'division_id' => $participation->division_id, 'jersey_number' => $jersey, 'status' => $status, 'requested_at' => now()]);
+        if ($status === 'active' && $player->status->value === 'active') {
+            $sequence = PlayerCredential::count() + 1;
+            PlayerCredential::create(['league_id' => $player->league_id, 'player_registration_id' => $registration->id, 'sequence' => $sequence, 'folio' => sprintf('L%04d-2027-%06d', $player->league_id, $sequence), 'status' => 'active', 'snapshot' => [], 'issued_at' => now()]);
+        }
+        return $registration;
     }
 
     private function membership(League $league, User $user, Role $role): LeagueMembership
