@@ -6,6 +6,7 @@ use App\Domain\Competition\Models\Competition;
 use App\Domain\Identity\Models\Role;
 use App\Domain\League\Models\League;
 use App\Domain\League\Models\LeagueMembership;
+use App\Domain\Scheduling\Models\GameMatch;
 use App\Domain\Team\Enums\ParticipationStatus;
 use App\Domain\Team\Enums\TeamStatus;
 use App\Domain\Team\Models\Team;
@@ -289,6 +290,25 @@ class TeamController extends Controller
                 default => TeamStatus::Inactive,
             };
             $participation->team->update(['status' => $teamStatus]);
+            if ($target === 'suspended') {
+                $futureMatches = GameMatch::query()
+                    ->where(fn ($query) => $query->where('home_team_participation_id', $participation->id)->orWhere('away_team_participation_id', $participation->id))
+                    ->whereIn('status', ['draft', 'scheduled', 'postponed'])
+                    ->where(fn ($query) => $query->whereNull('scheduled_at')->orWhere('scheduled_at', '>=', now()))
+                    ->lockForUpdate()->get();
+                foreach ($futureMatches as $match) {
+                    $oldStatus = $match->status->value;
+                    $match->update(['status' => 'cancelled']);
+                    $match->scheduleChanges()->create([
+                        'type' => 'cancelled',
+                        'old_values' => ['status' => $oldStatus],
+                        'new_values' => ['status' => 'cancelled', 'administrative_result_pending' => true],
+                        'reason' => $request->string('reason')->toString(),
+                        'performed_by' => $request->user()->id,
+                        'occurred_at' => now(),
+                    ]);
+                }
+            }
             $this->audit->log($request, 'team.participation.status_changed', $participation, $league, ['status' => $current], ['status' => $target], $request->string('reason')->toString());
         });
 

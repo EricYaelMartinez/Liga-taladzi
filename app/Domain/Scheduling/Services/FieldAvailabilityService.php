@@ -7,13 +7,18 @@ use Carbon\CarbonInterface;
 
 class FieldAvailabilityService
 {
-    public function isAvailable(PlayingField $field, CarbonInterface $startsAt, CarbonInterface $endsAt): bool
+    public function isAvailable(
+        PlayingField $field,
+        CarbonInterface $startsAt,
+        CarbonInterface $endsAt,
+        ?int $bufferMinutes = null,
+    ): bool
     {
         $field->loadMissing('venue.league.setting');
         if ($field->status->value !== 'active' || $field->venue->status->value !== 'active') return false;
         if ($endsAt->lessThanOrEqualTo($startsAt) || ! $startsAt->isSameDay($endsAt)) return false;
 
-        $buffer = (int) ($field->venue->league->setting?->schedule_buffer_minutes ?? 0);
+        $buffer = $bufferMinutes ?? (int) ($field->venue->league->setting?->schedule_buffer_minutes ?? 0);
         $reservedUntil = $endsAt->copy()->addMinutes($buffer);
         if (! $startsAt->isSameDay($reservedUntil)) return false;
         $date = $startsAt->toDateString();

@@ -160,6 +160,14 @@ registrar observaciones internas que nunca se exponen al árbitro. La validació
 de disponibilidad queda preparada para las asignaciones del calendario del
 Módulo 10. Consulta `MODULO_9_VERIFICACION.md` para la prueba completa.
 
+## Módulo 10: jornadas y programación
+
+El calendario puede generarse automáticamente para competencias de todos contra
+todos, incluso con equipos impares y descansos, o capturarse manualmente. Cada
+partido valida la disponibilidad y los cruces de equipos, canchas y árbitros,
+conserva el historial de reprogramaciones y se publica por jornada. Consulta
+`MODULO_10_VERIFICACION.md` para la prueba completa.
+
 ## Datos locales
 
 PostgreSQL y Redis utilizan volúmenes de Docker. `docker compose down` no elimina la información.

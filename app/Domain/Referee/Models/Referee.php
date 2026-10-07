@@ -28,4 +28,5 @@ class Referee extends Model
     public function user(): BelongsTo { return $this->belongsTo(User::class); }
     public function availabilities(): HasMany { return $this->hasMany(RefereeAvailability::class); }
     public function observations(): HasMany { return $this->hasMany(RefereeObservation::class); }
+    public function matchAssignments(): HasMany { return $this->hasMany(\App\Domain\Scheduling\Models\MatchRefereeAssignment::class); }
 }

@@ -25,4 +25,5 @@ class PlayingField extends Model
     public function divisions(): BelongsToMany { return $this->belongsToMany(Division::class, 'field_division')->withTimestamps(); }
     public function availabilities(): HasMany { return $this->hasMany(FieldAvailability::class); }
     public function blocks(): HasMany { return $this->hasMany(FieldBlock::class); }
+    public function matches(): HasMany { return $this->hasMany(GameMatch::class); }
 }

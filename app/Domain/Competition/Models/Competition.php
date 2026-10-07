@@ -37,4 +37,6 @@ class Competition extends Model
     public function regulation(): BelongsTo { return $this->belongsTo(Regulation::class); }
     public function creator(): BelongsTo { return $this->belongsTo(User::class, 'created_by'); }
     public function teamParticipations(): HasMany { return $this->hasMany(\App\Domain\Team\Models\TeamParticipation::class); }
+    public function matchdays(): HasMany { return $this->hasMany(\App\Domain\Scheduling\Models\Matchday::class); }
+    public function matches(): HasMany { return $this->hasMany(\App\Domain\Scheduling\Models\GameMatch::class); }
 }

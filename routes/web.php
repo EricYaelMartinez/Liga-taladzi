@@ -18,6 +18,7 @@ use App\Http\Controllers\League\PlayerController;
 use App\Http\Controllers\League\PlayerCredentialController;
 use App\Http\Controllers\League\PlayerDocumentController;
 use App\Http\Controllers\League\RefereeController;
+use App\Http\Controllers\League\ScheduleController;
 use App\Http\Controllers\League\SettingsController;
 use App\Http\Controllers\League\TeamController;
 use Illuminate\Support\Facades\Route;
@@ -121,6 +122,17 @@ Route::middleware(['auth', 'active'])->group(function (): void {
                 Route::post('/arbitros/{referee}/disponibilidades', 'storeAvailability')->name('referees.availabilities.store');
                 Route::delete('/disponibilidades-arbitro/{availability}', 'destroyAvailability')->name('referees.availabilities.destroy');
                 Route::post('/arbitros/{referee}/observaciones', 'storeObservation')->name('referees.observations.store');
+            });
+            Route::controller(ScheduleController::class)->middleware('permission:schedule.view')->group(function (): void {
+                Route::get('/calendario', 'index')->name('schedule.index');
+                Route::middleware('permission:schedule.manage')->group(function (): void {
+                    Route::post('/competencias/{competition}/generar-calendario', 'generate')->name('schedule.generate');
+                    Route::post('/jornadas', 'storeMatchday')->name('matchdays.store');
+                    Route::post('/jornadas/{matchday}/partidos', 'storeMatch')->name('matches.store');
+                    Route::post('/partidos/{match}/programar', 'program')->name('matches.program');
+                    Route::post('/jornadas/{matchday}/publicar', 'publish')->name('matchdays.publish');
+                    Route::put('/partidos/{match}/estado', 'transition')->name('matches.status');
+                });
             });
             Route::controller(PlayerController::class)->middleware('permission:players.view')->group(function (): void {
                 Route::get('/jugadores', 'index')->name('players.index');
