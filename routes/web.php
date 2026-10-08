@@ -12,6 +12,7 @@ use App\Http\Controllers\EnvironmentController;
 use App\Http\Controllers\League\AuditLogController;
 use App\Http\Controllers\League\CompetitionSetupController;
 use App\Http\Controllers\League\FieldController;
+use App\Http\Controllers\League\LineupController;
 use App\Http\Controllers\League\MembershipController;
 use App\Http\Controllers\League\OperationalSettingsController;
 use App\Http\Controllers\League\PlayerController;
@@ -130,9 +131,19 @@ Route::middleware(['auth', 'active'])->group(function (): void {
                     Route::post('/jornadas', 'storeMatchday')->name('matchdays.store');
                     Route::post('/jornadas/{matchday}/partidos', 'storeMatch')->name('matches.store');
                     Route::post('/partidos/{match}/programar', 'program')->name('matches.program');
+                    Route::put('/partidos/{match}/programacion', 'updateSchedule')->name('matches.schedule.update');
+                    Route::put('/partidos/{match}/arbitros', 'assignReferees')->name('matches.referees.assign');
                     Route::post('/jornadas/{matchday}/publicar', 'publish')->name('matchdays.publish');
                     Route::put('/partidos/{match}/estado', 'transition')->name('matches.status');
+                    Route::post('/horarios-estandar', 'storeTimeSlot')->name('schedule.time-slots.store');
+                    Route::delete('/horarios-estandar/{slot}', 'destroyTimeSlot')->name('schedule.time-slots.destroy');
+                    Route::put('/capacidad-canchas', 'updateCapacity')->name('schedule.capacity.update');
                 });
+            });
+            Route::controller(LineupController::class)->middleware('permission:lineups.view')->group(function (): void {
+                Route::get('/alineaciones', 'index')->name('lineups.index');
+                Route::put('/partidos/{match}/alineaciones/{participation}', 'save')->name('lineups.save');
+                Route::post('/partidos/{match}/alineaciones/{participation}/enviar', 'submit')->name('lineups.submit');
             });
             Route::controller(PlayerController::class)->middleware('permission:players.view')->group(function (): void {
                 Route::get('/jugadores', 'index')->name('players.index');

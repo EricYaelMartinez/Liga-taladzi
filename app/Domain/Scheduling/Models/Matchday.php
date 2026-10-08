@@ -12,11 +12,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Matchday extends Model
 {
-    protected $fillable = ['competition_id', 'number', 'name', 'phase', 'starts_on', 'ends_on', 'status', 'published_at', 'created_by'];
+    protected $fillable = ['competition_id', 'number', 'name', 'phase', 'starts_on', 'ends_on', 'status', 'published_at', 'leg_number', 'generation_round', 'generated_automatically', 'created_by'];
 
     protected function casts(): array
     {
-        return ['phase' => MatchPhase::class, 'status' => MatchdayStatus::class, 'starts_on' => 'date', 'ends_on' => 'date', 'published_at' => 'datetime'];
+        return ['phase' => MatchPhase::class, 'status' => MatchdayStatus::class, 'starts_on' => 'date', 'ends_on' => 'date', 'published_at' => 'datetime', 'leg_number' => 'integer', 'generation_round' => 'integer', 'generated_automatically' => 'boolean'];
     }
 
     public function competition(): BelongsTo { return $this->belongsTo(Competition::class); }

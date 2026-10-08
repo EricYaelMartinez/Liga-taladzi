@@ -8,15 +8,20 @@ use App\Domain\Referee\Models\Referee;
 use App\Domain\Scheduling\Models\GameMatch;
 use App\Domain\Scheduling\Models\Matchday;
 use App\Domain\Scheduling\Models\PlayingField;
+use App\Domain\Scheduling\Models\ScheduleTimeSlot;
 use App\Domain\Scheduling\Services\MatchSchedulingService;
 use App\Domain\Scheduling\Services\RoundRobinScheduleGenerator;
 use App\Domain\Team\Models\TeamParticipation;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\GenerateScheduleRequest;
+use App\Http\Requests\AssignMatchRefereesRequest;
 use App\Http\Requests\ProgramMatchRequest;
+use App\Http\Requests\StoreScheduleTimeSlotRequest;
 use App\Http\Requests\StoreMatchdayRequest;
 use App\Http\Requests\StoreScheduledMatchRequest;
 use App\Http\Requests\TransitionMatchStatusRequest;
+use App\Http\Requests\UpdateMatchScheduleRequest;
+use App\Http\Requests\UpdateScheduleCapacityRequest;
 use App\Support\AuditLogger;
 use App\Support\LeagueContext;
 use Carbon\Carbon;
@@ -65,6 +70,8 @@ class ScheduleController extends Controller
             'matchdays' => $matchdays,
             'fields' => PlayingField::where('status', 'active')->whereHas('venue', fn ($query) => $query->where('league_id', $league->id)->where('status', 'active'))->with('venue:id,name')->orderBy('name')->get(),
             'referees' => Referee::where('league_id', $league->id)->where('status', 'active')->with('user:id,name')->orderBy('category_level')->get(),
+            'timeSlots' => ScheduleTimeSlot::where('league_id', $league->id)->with('field:id,name')->orderBy('weekday')->orderBy('starts_at')->get(),
+            'defaultMaxMatchesPerFieldDay' => (int) ($league->setting?->default_max_matches_per_field_day ?? 6),
             'canManage' => $canManage,
         ]);
     }
@@ -73,9 +80,17 @@ class ScheduleController extends Controller
     {
         $league = $this->league($request);
         $this->assertCompetition($competition, $league);
-        $created = $this->generator->generate($competition->load('regulation'), Carbon::parse($request->validated('first_match_date')), $request->integer('days_between_matchdays'), $request->user()->id);
+        $created = $this->generator->generate(
+            $competition->load('regulation', 'tournament.season'),
+            Carbon::parse($request->validated('first_match_date')),
+            $request->integer('days_between_matchdays'),
+            $request->user()->id,
+            $request->validated('scope'),
+            $request->boolean('auto_schedule'),
+            $request->string('reason')->toString(),
+        );
         $this->audit->log($request, 'schedule.generated', $competition, $league, [], ['matchdays' => count($created)], $request->string('reason')->toString());
-        return back()->with('success', count($created).' jornadas generadas en borrador. Ahora programa campo, horario y árbitro.');
+        return back()->with('success', count($created).' jornadas generadas en borrador. Los árbitros pueden asignarse a continuación.');
     }
 
     public function storeMatchday(StoreMatchdayRequest $request): RedirectResponse
@@ -106,13 +121,21 @@ class ScheduleController extends Controller
             ->whereIn('home_team_participation_id', [$home->id, $away->id])
             ->orWhereIn('away_team_participation_id', [$home->id, $away->id]))->exists();
         if ($alreadyIncluded) throw ValidationException::withMessages(['home_team_participation_id' => 'Uno de los equipos ya tiene partido en esta jornada.']);
+        $pairingKey = $this->generator->pairingKey($home->id, $away->id);
+        $alreadyPlayed = GameMatch::where('competition_id', $matchday->competition_id)
+            ->where('leg_number', $matchday->leg_number)->where(function ($query) use ($home, $away): void {
+                $query->where(fn ($teams) => $teams->where('home_team_participation_id', $home->id)->where('away_team_participation_id', $away->id))
+                    ->orWhere(fn ($teams) => $teams->where('home_team_participation_id', $away->id)->where('away_team_participation_id', $home->id));
+            })->exists();
+        if ($alreadyPlayed) throw ValidationException::withMessages(['away_team_participation_id' => 'Estos equipos ya tienen un partido registrado en la misma vuelta.']);
 
         $match = $matchday->matches()->create([
             'competition_id' => $matchday->competition_id,
             'home_team_participation_id' => $home->id,
             'away_team_participation_id' => $away->id,
             'duration_minutes' => $this->generator->durationMinutes($matchday->competition->load('regulation')),
-            'status' => 'draft', 'public_notes' => $request->validated('public_notes'), 'created_by' => $request->user()->id,
+            'status' => 'draft', 'leg_number' => $matchday->leg_number, 'pairing_key' => $pairingKey,
+            'public_notes' => $request->validated('public_notes'), 'created_by' => $request->user()->id,
         ]);
         $this->audit->log($request, 'schedule.match.created', $match, $league, [], $match->toArray(), $request->string('reason')->toString());
         return back()->with('success', 'Partido agregado a la jornada.');
@@ -135,6 +158,77 @@ class ScheduleController extends Controller
         $updated = $this->scheduler->schedule($match, $data, $request->user());
         $this->audit->log($request, 'schedule.match.programmed', $updated, $league, $old, $updated->load('refereeAssignments')->toArray(), $request->string('reason')->toString());
         return back()->with('success', 'Partido programado y conflictos verificados.');
+    }
+
+    public function updateSchedule(UpdateMatchScheduleRequest $request, GameMatch $match): RedirectResponse
+    {
+        $league = $this->league($request);
+        $this->assertMatch($match, $league);
+        $old = $match->toArray();
+        $updated = $this->scheduler->updateSchedule($match, $request->validated(), $request->user());
+        $this->audit->log($request, 'schedule.match.rescheduled', $updated, $league, $old, $updated->toArray(), $request->string('reason')->toString());
+        return back()->with('success', 'Horario y campo guardados. Ahora puedes asignar el cuerpo arbitral.');
+    }
+
+    public function assignReferees(AssignMatchRefereesRequest $request, GameMatch $match): RedirectResponse
+    {
+        $league = $this->league($request);
+        $this->assertMatch($match, $league);
+        $roles = [
+            'central' => $request->integer('central_referee_id'),
+            'assistant_1' => $request->filled('assistant_1_referee_id') ? $request->integer('assistant_1_referee_id') : null,
+            'assistant_2' => $request->filled('assistant_2_referee_id') ? $request->integer('assistant_2_referee_id') : null,
+            'fourth' => $request->filled('fourth_referee_id') ? $request->integer('fourth_referee_id') : null,
+        ];
+        $old = $match->load('refereeAssignments')->toArray();
+        $updated = $this->scheduler->assignReferees($match, $roles, $request->string('reason')->toString(), $request->user());
+        $this->audit->log($request, 'schedule.match.referees_assigned', $updated, $league, $old, $updated->load('refereeAssignments')->toArray(), $request->string('reason')->toString());
+        return back()->with('success', 'Cuerpo arbitral asignado correctamente.');
+    }
+
+    public function storeTimeSlot(StoreScheduleTimeSlotRequest $request): RedirectResponse
+    {
+        $league = $this->league($request);
+        $fieldId = $request->validated('playing_field_id');
+        if ($fieldId) {
+            PlayingField::whereHas('venue', fn ($query) => $query->where('league_id', $league->id))->findOrFail($fieldId);
+        }
+        $duplicate = ScheduleTimeSlot::where('league_id', $league->id)->where('playing_field_id', $fieldId)
+            ->where('weekday', $request->integer('weekday'))->where('starts_at', $request->validated('starts_at'))->exists();
+        if ($duplicate) throw ValidationException::withMessages(['starts_at' => 'Este horario estándar ya está registrado para el mismo alcance y día.']);
+        $slot = ScheduleTimeSlot::create([
+            ...$request->safe()->except('reason'), 'league_id' => $league->id,
+            'is_active' => true, 'created_by' => $request->user()->id,
+        ]);
+        $this->audit->log($request, 'schedule.time_slot.created', $slot, $league, [], $slot->toArray(), $request->string('reason')->toString());
+        return back()->with('success', 'Horario estándar agregado.');
+    }
+
+    public function destroyTimeSlot(Request $request, ScheduleTimeSlot $slot): RedirectResponse
+    {
+        $data = $request->validate(['reason' => ['required', 'string', 'max:500']]);
+        $league = $this->league($request);
+        abort_unless($slot->league_id === $league->id, 404);
+        $old = $slot->toArray();
+        $slot->delete();
+        $this->audit->log($request, 'schedule.time_slot.deleted', $slot, $league, $old, [], $data['reason']);
+        return back()->with('success', 'Horario estándar eliminado.');
+    }
+
+    public function updateCapacity(UpdateScheduleCapacityRequest $request): RedirectResponse
+    {
+        $league = $this->league($request);
+        DB::transaction(function () use ($request, $league): void {
+            $settings = $league->setting()->lockForUpdate()->firstOrFail();
+            $old = ['default' => $settings->default_max_matches_per_field_day];
+            $settings->update(['default_max_matches_per_field_day' => $request->integer('default_max_matches_per_field_day')]);
+            foreach ($request->validated('fields') as $item) {
+                $field = PlayingField::whereHas('venue', fn ($query) => $query->where('league_id', $league->id))->findOrFail($item['id']);
+                $field->update(['max_matches_per_day' => $item['max_matches_per_day'] ?? null]);
+            }
+            $this->audit->log($request, 'schedule.capacity.updated', $settings, $league, $old, ['default' => $settings->default_max_matches_per_field_day], $request->string('reason')->toString());
+        });
+        return back()->with('success', 'Capacidad diaria de las canchas actualizada.');
     }
 
     public function publish(Request $request, Matchday $matchday): RedirectResponse

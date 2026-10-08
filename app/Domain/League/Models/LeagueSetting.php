@@ -14,6 +14,7 @@ class LeagueSetting extends Model
         'period_duration_minutes',
         'halftime_minutes',
         'schedule_buffer_minutes',
+        'default_max_matches_per_field_day',
         'appeal_deadline_hours',
         'payment_grace_days',
         'reactivation_window_days',
@@ -30,6 +31,7 @@ class LeagueSetting extends Model
             'bond_enabled' => 'boolean',
             'bond_amount' => 'decimal:2',
             'revision' => 'integer',
+            'default_max_matches_per_field_day' => 'integer',
         ];
     }
 

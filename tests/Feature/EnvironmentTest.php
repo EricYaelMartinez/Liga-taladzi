@@ -20,6 +20,7 @@ class EnvironmentTest extends TestCase
     {
         $this->assertSame('es', config('app.locale'));
         $this->assertSame('America/Mexico_City', config('app.timezone'));
+        $this->assertSame('America/Mexico_City', config('database.connections.pgsql.timezone'));
     }
 }
 

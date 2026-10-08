@@ -16,6 +16,29 @@ if (-not (Test-Path ".env")) {
     Copy-Item ".env.example" ".env"
 }
 
+$envPath = (Resolve-Path ".env").Path
+$envText = [System.IO.File]::ReadAllText($envPath)
+if ($envText -match "(?m)^APP_TIMEZONE=") {
+    $envText = [System.Text.RegularExpressions.Regex]::Replace(
+        $envText,
+        "(?m)^APP_TIMEZONE=.*$",
+        "APP_TIMEZONE=America/Mexico_City"
+    )
+} else {
+    $envText = $envText.TrimEnd() + [Environment]::NewLine + "APP_TIMEZONE=America/Mexico_City" + [Environment]::NewLine
+}
+if ($envText -match "(?m)^DB_TIMEZONE=") {
+    $envText = [System.Text.RegularExpressions.Regex]::Replace(
+        $envText,
+        "(?m)^DB_TIMEZONE=.*$",
+        "DB_TIMEZONE=America/Mexico_City"
+    )
+} else {
+    $envText = $envText.TrimEnd() + [Environment]::NewLine + "DB_TIMEZONE=America/Mexico_City" + [Environment]::NewLine
+}
+$utf8WithoutBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText($envPath, $envText, $utf8WithoutBom)
+
 Write-Host "Preparando las dependencias PHP..."
 docker compose build app
 Assert-DockerSucceeded $LASTEXITCODE

@@ -37,4 +37,5 @@ class TeamParticipation extends Model
     public function playerRegistrations(): HasMany { return $this->hasMany(\App\Domain\Player\Models\PlayerRegistration::class); }
     public function homeMatches(): HasMany { return $this->hasMany(\App\Domain\Scheduling\Models\GameMatch::class, 'home_team_participation_id'); }
     public function awayMatches(): HasMany { return $this->hasMany(\App\Domain\Scheduling\Models\GameMatch::class, 'away_team_participation_id'); }
+    public function lineups(): HasMany { return $this->hasMany(\App\Domain\Scheduling\Models\MatchLineup::class); }
 }

@@ -17,6 +17,7 @@ use App\Domain\Referee\Models\Referee;
 use App\Domain\Scheduling\Models\GameMatch;
 use App\Domain\Scheduling\Models\Matchday;
 use App\Domain\Scheduling\Models\PlayingField;
+use App\Domain\Scheduling\Models\ScheduleTimeSlot;
 use App\Domain\Scheduling\Models\Venue;
 use App\Domain\Scheduling\Services\RoundRobinScheduleGenerator;
 use App\Domain\Team\Models\Team;
@@ -40,6 +41,11 @@ class ScheduleManagementTest extends TestCase
         $this->seed(IdentitySeeder::class);
         $this->adminRole = Role::where('slug', 'league_admin')->firstOrFail();
         $this->refereeRole = Role::where('slug', 'referee')->firstOrFail();
+    }
+
+    public function test_match_timestamps_include_the_timezone_when_written(): void
+    {
+        $this->assertSame('Y-m-d H:i:s P', (new GameMatch())->getDateFormat());
     }
 
     public function test_generator_creates_rounds_for_odd_number_of_teams_without_fake_match(): void
@@ -71,6 +77,43 @@ class ScheduleManagementTest extends TestCase
         $this->assertDatabaseHas('matches', ['home_team_participation_id' => $second->id, 'away_team_participation_id' => $first->id]);
     }
 
+    public function test_generator_can_create_only_the_next_round_without_repeating_matches(): void
+    {
+        [$administrator, $league] = $this->administrator();
+        $competition = $this->competition($league, 'round_robin');
+        foreach (range(1, 4) as $number) $this->participation($competition, "Equipo {$number}");
+
+        app(RoundRobinScheduleGenerator::class)->generate($competition->load('regulation'), Carbon::parse('2027-01-04'), 7, $administrator->id, 'next');
+        $this->assertDatabaseCount('matchdays', 1);
+        $this->assertDatabaseCount('matches', 2);
+
+        app(RoundRobinScheduleGenerator::class)->generate($competition->load('regulation'), Carbon::parse('2027-01-11'), 7, $administrator->id, 'next');
+        $this->assertDatabaseCount('matchdays', 2);
+        $this->assertDatabaseCount('matches', 4);
+        $this->assertSame(4, GameMatch::query()->distinct()->count('pairing_key'));
+    }
+
+    public function test_generator_assigns_standard_time_and_field_without_requiring_referee(): void
+    {
+        [$administrator, $league] = $this->administrator();
+        $competition = $this->competition($league, 'round_robin');
+        $this->participation($competition, 'Locales');
+        $this->participation($competition, 'Visitantes');
+        $field = $this->field($league, 'Cancha automática');
+        ScheduleTimeSlot::create(['league_id' => $league->id, 'weekday' => 1, 'starts_at' => '10:00', 'created_by' => $administrator->id]);
+
+        app(RoundRobinScheduleGenerator::class)->generate(
+            $competition->load('regulation', 'tournament.season'), Carbon::parse('2027-01-04'), 7,
+            $administrator->id, 'all', true, 'Programación automática',
+        );
+
+        $match = GameMatch::firstOrFail();
+        $this->assertSame($field->id, $match->playing_field_id);
+        $this->assertNotNull($match->scheduled_at);
+        $this->assertSame('10:00', $match->scheduled_at->copy()->setTimezone(config('app.timezone'))->format('H:i'));
+        $this->assertDatabaseMissing('match_referee_assignments', ['match_id' => $match->id]);
+    }
+
     public function test_administrator_programs_match_when_field_and_referee_are_available(): void
     {
         [$administrator, $league] = $this->administrator();
@@ -85,6 +128,51 @@ class ScheduleManagementTest extends TestCase
         $this->assertDatabaseHas('matches', ['id' => $match->id, 'playing_field_id' => $field->id, 'status' => 'draft']);
         $this->assertDatabaseHas('match_referee_assignments', ['match_id' => $match->id, 'referee_id' => $referee->id, 'role' => 'central']);
         $this->assertDatabaseHas('match_schedule_changes', ['match_id' => $match->id, 'type' => 'scheduled']);
+    }
+
+    public function test_schedule_and_referee_assignment_can_be_saved_in_separate_steps(): void
+    {
+        [$administrator, $league] = $this->administrator();
+        [, $match] = $this->fixture($league);
+        $field = $this->field($league, 'Cancha separada');
+        $referee = $this->referee($league, 'Árbitro separado');
+        $session = $this->leagueSession($league, $this->adminRole);
+
+        $this->actingAs($administrator)->withSession($session)->put("/liga/partidos/{$match->id}/programacion", [
+            'scheduled_at' => '2027-01-04T10:00', 'playing_field_id' => $field->id,
+            'public_notes' => '', 'reason' => 'Definición de horario',
+        ])->assertSessionHasNoErrors();
+        $match->refresh();
+        $this->assertSame('10:00', $match->scheduled_at->copy()->setTimezone(config('app.timezone'))->format('H:i'));
+        $this->assertDatabaseMissing('match_referee_assignments', ['match_id' => $match->id]);
+
+        $this->actingAs($administrator)->withSession($session)->put("/liga/partidos/{$match->id}/arbitros", [
+            'central_referee_id' => $referee->id, 'assistant_1_referee_id' => null,
+            'assistant_2_referee_id' => null, 'fourth_referee_id' => null, 'reason' => 'Designación semanal',
+        ])->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('match_referee_assignments', ['match_id' => $match->id, 'referee_id' => $referee->id, 'role' => 'central']);
+        $this->assertDatabaseHas('match_schedule_changes', ['match_id' => $match->id, 'type' => 'referees_assigned']);
+    }
+
+    public function test_field_daily_limit_is_enforced_when_reprogramming(): void
+    {
+        [$administrator, $league] = $this->administrator();
+        $competition = $this->competition($league);
+        $teams = collect(range(1, 4))->map(fn ($number) => $this->participation($competition, "Equipo límite {$number}"));
+        $matchday = $this->matchday($competition);
+        $first = $this->match($matchday, $teams[0], $teams[1]);
+        $second = $this->match($matchday, $teams[2], $teams[3]);
+        $field = $this->field($league, 'Cancha limitada');
+        $field->update(['max_matches_per_day' => 1]);
+        $referee = $this->referee($league, 'Árbitro 1');
+        $other = $this->referee($league, 'Árbitro 2');
+        $session = $this->leagueSession($league, $this->adminRole);
+        $this->actingAs($administrator)->withSession($session)->post("/liga/partidos/{$first->id}/programar", $this->programPayload($field, $referee))->assertSessionHasNoErrors();
+
+        $payload = $this->programPayload($field, $other);
+        $payload['scheduled_at'] = '2027-01-04T14:00';
+        $this->actingAs($administrator)->withSession($session)->post("/liga/partidos/{$second->id}/programar", $payload)
+            ->assertSessionHasErrors('playing_field_id');
     }
 
     public function test_conflicts_for_field_team_and_referee_are_rejected(): void

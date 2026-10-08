@@ -12,6 +12,8 @@ class GenerateScheduleRequest extends FormRequest
         return [
             'first_match_date' => ['required', 'date'],
             'days_between_matchdays' => ['required', 'integer', 'between:1,30'],
+            'scope' => ['required', 'in:next,all'],
+            'auto_schedule' => ['required', 'boolean'],
             'reason' => ['required', 'string', 'max:500'],
         ];
     }

@@ -168,6 +168,21 @@ partido valida la disponibilidad y los cruces de equipos, canchas y árbitros,
 conserva el historial de reprogramaciones y se publica por jornada. Consulta
 `MODULO_10_VERIFICACION.md` para la prueba completa.
 
+### Módulo 10.1: programación automática avanzada
+
+La liga puede definir horarios generales con excepciones por cancha y límites
+diarios. El calendario se genera jornada por jornada o de forma completa,
+asigna campos y horarios automáticamente sin repetir enfrentamientos y permite
+designar árbitros en un segundo paso. Consulta `MODULO_10_1_VERIFICACION.md`.
+
+## Módulo 11: alineaciones
+
+El representante puede preparar la alineación opcional de su equipo con
+titulares, suplentes y capitán. Los borradores permanecen editables hasta su
+envío; después quedan cerrados definitivamente. El administrador gestiona
+cualquier equipo y el árbitro consulta las alineaciones enviadas de sus
+partidos asignados. Consulta `MODULO_11_VERIFICACION.md`.
+
 ## Datos locales
 
 PostgreSQL y Redis utilizan volúmenes de Docker. `docker compose down` no elimina la información.

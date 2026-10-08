@@ -83,6 +83,11 @@ class League extends Model
         return $this->hasMany(\App\Domain\Referee\Models\Referee::class);
     }
 
+    public function scheduleTimeSlots(): HasMany
+    {
+        return $this->hasMany(\App\Domain\Scheduling\Models\ScheduleTimeSlot::class);
+    }
+
     public function isActive(): bool
     {
         return $this->status === LeagueStatus::Active;

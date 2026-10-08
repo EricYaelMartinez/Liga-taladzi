@@ -14,11 +14,11 @@ class PlayingField extends Model
 {
     use SoftDeletes;
 
-    protected $fillable = ['venue_id', 'name', 'surface', 'has_lighting', 'capacity', 'notes', 'status'];
+    protected $fillable = ['venue_id', 'name', 'surface', 'has_lighting', 'capacity', 'max_matches_per_day', 'notes', 'status'];
 
     protected function casts(): array
     {
-        return ['has_lighting' => 'boolean', 'capacity' => 'integer', 'status' => FieldStatus::class];
+        return ['has_lighting' => 'boolean', 'capacity' => 'integer', 'max_matches_per_day' => 'integer', 'status' => FieldStatus::class];
     }
 
     public function venue(): BelongsTo { return $this->belongsTo(Venue::class); }
@@ -26,4 +26,5 @@ class PlayingField extends Model
     public function availabilities(): HasMany { return $this->hasMany(FieldAvailability::class); }
     public function blocks(): HasMany { return $this->hasMany(FieldBlock::class); }
     public function matches(): HasMany { return $this->hasMany(GameMatch::class); }
+    public function scheduleTimeSlots(): HasMany { return $this->hasMany(ScheduleTimeSlot::class); }
 }

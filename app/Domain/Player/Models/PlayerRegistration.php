@@ -36,5 +36,6 @@ class PlayerRegistration extends Model
     public function requester(): BelongsTo { return $this->belongsTo(User::class, 'requested_by'); }
     public function reviewer(): BelongsTo { return $this->belongsTo(User::class, 'reviewed_by'); }
     public function credentials(): HasMany { return $this->hasMany(PlayerCredential::class); }
+    public function lineupSelections(): HasMany { return $this->hasMany(\App\Domain\Scheduling\Models\MatchLineupPlayer::class); }
     public function activeCredential(): HasOne { return $this->hasOne(PlayerCredential::class)->where('status', 'active'); }
 }

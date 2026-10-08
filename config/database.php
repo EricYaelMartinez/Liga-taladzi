@@ -24,6 +24,7 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'search_path' => 'public',
+            'timezone' => env('DB_TIMEZONE', 'America/Mexico_City'),
             'sslmode' => 'prefer',
         ],
     ],
