@@ -13,6 +13,7 @@ use App\Http\Controllers\League\AuditLogController;
 use App\Http\Controllers\League\CompetitionSetupController;
 use App\Http\Controllers\League\FieldController;
 use App\Http\Controllers\League\LineupController;
+use App\Http\Controllers\League\MatchReportController;
 use App\Http\Controllers\League\MembershipController;
 use App\Http\Controllers\League\OperationalSettingsController;
 use App\Http\Controllers\League\PlayerController;
@@ -144,6 +145,14 @@ Route::middleware(['auth', 'active'])->group(function (): void {
                 Route::get('/alineaciones', 'index')->name('lineups.index');
                 Route::put('/partidos/{match}/alineaciones/{participation}', 'save')->name('lineups.save');
                 Route::post('/partidos/{match}/alineaciones/{participation}/enviar', 'submit')->name('lineups.submit');
+            });
+            Route::controller(MatchReportController::class)->middleware('permission:reports.view')->group(function (): void {
+                Route::get('/cedulas', 'index')->name('reports.index');
+                Route::put('/partidos/{match}/cedula', 'save')->name('reports.save');
+                Route::post('/partidos/{match}/cedula/enviar', 'submit')->name('reports.submit');
+                Route::post('/cedulas/{report}/conformidad', 'confirm')->middleware('permission:reports.confirm')->name('reports.confirm');
+                Route::post('/cedulas/{report}/revision', 'review')->middleware('permission:reports.review')->name('reports.review');
+                Route::get('/cedulas/{report}.pdf', 'download')->name('reports.download');
             });
             Route::controller(PlayerController::class)->middleware('permission:players.view')->group(function (): void {
                 Route::get('/jugadores', 'index')->name('players.index');

@@ -30,6 +30,8 @@ La captura es opcional: la ausencia de una alineación no impide iniciar el part
 - No se admiten jugadores pendientes, suspendidos, liberados o pertenecientes al rival.
 - Solo puede existir una alineación por partido y equipo.
 - Puede haber como máximo un capitán.
+- El borrador puede guardarse incompleto, pero nunca con más de 11 titulares.
+- El envío definitivo exige entre 8 y 11 titulares.
 - Debe guardarse al menos un jugador para crear el borrador.
 - Una alineación enviada no puede modificarse ni enviarse nuevamente.
 

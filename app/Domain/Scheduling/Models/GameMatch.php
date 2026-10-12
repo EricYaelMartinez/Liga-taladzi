@@ -9,6 +9,7 @@ use App\Domain\Team\Models\TeamParticipation;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class GameMatch extends Model
 {
@@ -34,6 +35,7 @@ class GameMatch extends Model
     public function field(): BelongsTo { return $this->belongsTo(PlayingField::class, 'playing_field_id'); }
     public function refereeAssignments(): HasMany { return $this->hasMany(MatchRefereeAssignment::class, 'match_id'); }
     public function lineups(): HasMany { return $this->hasMany(MatchLineup::class, 'match_id'); }
+    public function report(): HasOne { return $this->hasOne(MatchReport::class, 'match_id'); }
     public function scheduleChanges(): HasMany { return $this->hasMany(MatchScheduleChange::class, 'match_id'); }
     public function creator(): BelongsTo { return $this->belongsTo(User::class, 'created_by'); }
 }
