@@ -6,6 +6,7 @@ use App\Http\Middleware\RequirePasswordChange;
 use App\Http\Middleware\RequirePermission;
 use App\Http\Middleware\EnsureLeagueContext;
 use App\Console\Commands\CreateInitialAdmin;
+use App\Console\Commands\SyncMatchLifecycle;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -25,7 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'league.context' => EnsureLeagueContext::class,
         ]);
     })
-    ->withCommands([CreateInitialAdmin::class])
+    ->withCommands([CreateInitialAdmin::class, SyncMatchLifecycle::class])
     ->withExceptions(function (Exceptions $exceptions): void {
         // Las excepciones específicas se configurarán por módulo.
     })->create();

@@ -10,6 +10,7 @@ use App\Domain\Scheduling\Models\Matchday;
 use App\Domain\Scheduling\Models\PlayingField;
 use App\Domain\Scheduling\Models\ScheduleTimeSlot;
 use App\Domain\Scheduling\Services\MatchSchedulingService;
+use App\Domain\Scheduling\Services\MatchLifecycleService;
 use App\Domain\Scheduling\Services\RoundRobinScheduleGenerator;
 use App\Domain\Team\Models\TeamParticipation;
 use App\Http\Controllers\Controller;
@@ -39,22 +40,24 @@ class ScheduleController extends Controller
         private readonly AuditLogger $audit,
         private readonly RoundRobinScheduleGenerator $generator,
         private readonly MatchSchedulingService $scheduler,
+        private readonly MatchLifecycleService $lifecycle,
     ) {}
 
     public function index(Request $request): Response
     {
         $league = $this->league($request);
+        $this->lifecycle->syncForLeague($league->id);
         $canManage = $this->canManage($request, $league);
         $competitions = Competition::query()
             ->whereHas('tournament.season', fn ($query) => $query->where('league_id', $league->id))
             ->with([
-                'tournament.season:id,league_id,name', 'division:id,name', 'category:id,name',
+                'tournament:id,season_id,name,status', 'tournament.season:id,league_id,name,status', 'division:id,name', 'category:id,name',
                 'teamParticipations' => fn ($query) => $query->where('status', 'active')->with('team:id,name,short_name')->orderBy('registered_name'),
             ])->orderBy('name')->get();
 
         $matchdays = Matchday::query()
             ->whereHas('competition.tournament.season', fn ($query) => $query->where('league_id', $league->id))
-            ->when(! $canManage, fn ($query) => $query->where('status', 'published'))
+            ->when(! $canManage, fn ($query) => $query->whereIn('status', ['published', 'completed', 'cancelled']))
             ->with([
                 'competition:id,tournament_id,division_id,category_id,name,format',
                 'matches' => fn ($query) => $query
@@ -80,6 +83,7 @@ class ScheduleController extends Controller
     {
         $league = $this->league($request);
         $this->assertCompetition($competition, $league);
+        $this->assertCompetitionMutable($competition);
         $created = $this->generator->generate(
             $competition->load('regulation', 'tournament.season'),
             Carbon::parse($request->validated('first_match_date')),
@@ -98,6 +102,7 @@ class ScheduleController extends Controller
         $league = $this->league($request);
         $competition = Competition::findOrFail($request->integer('competition_id'));
         $this->assertCompetition($competition, $league);
+        $this->assertCompetitionMutable($competition);
         if ($competition->matchdays()->where('number', $request->integer('number'))->exists()) {
             throw ValidationException::withMessages(['number' => 'Ya existe una jornada con este número en la competencia.']);
         }
@@ -113,6 +118,7 @@ class ScheduleController extends Controller
     {
         $league = $this->league($request);
         $this->assertMatchday($matchday, $league);
+        $this->assertCompetitionMutable($matchday->competition);
         if ($matchday->status->value !== 'draft') throw ValidationException::withMessages(['matchday' => 'Solo puedes agregar partidos a una jornada en borrador.']);
         $home = $this->participation($matchday, $request->integer('home_team_participation_id'));
         $away = $this->participation($matchday, $request->integer('away_team_participation_id'));
@@ -145,6 +151,7 @@ class ScheduleController extends Controller
     {
         $league = $this->league($request);
         $this->assertMatch($match, $league);
+        $this->assertCompetitionMutable($match->competition);
         $data = [
             ...$request->safe()->except(['central_referee_id', 'assistant_1_referee_id', 'assistant_2_referee_id', 'fourth_referee_id']),
             'referees' => [
@@ -164,6 +171,7 @@ class ScheduleController extends Controller
     {
         $league = $this->league($request);
         $this->assertMatch($match, $league);
+        $this->assertCompetitionMutable($match->competition);
         $old = $match->toArray();
         $updated = $this->scheduler->updateSchedule($match, $request->validated(), $request->user());
         $this->audit->log($request, 'schedule.match.rescheduled', $updated, $league, $old, $updated->toArray(), $request->string('reason')->toString());
@@ -174,6 +182,7 @@ class ScheduleController extends Controller
     {
         $league = $this->league($request);
         $this->assertMatch($match, $league);
+        $this->assertCompetitionMutable($match->competition);
         $roles = [
             'central' => $request->integer('central_referee_id'),
             'assistant_1' => $request->filled('assistant_1_referee_id') ? $request->integer('assistant_1_referee_id') : null,
@@ -236,6 +245,7 @@ class ScheduleController extends Controller
         $data = $request->validate(['reason' => ['required', 'string', 'max:500']]);
         $league = $this->league($request);
         $this->assertMatchday($matchday, $league);
+        $this->assertCompetitionMutable($matchday->competition);
         if ($matchday->status->value !== 'draft') throw ValidationException::withMessages(['matchday' => 'Solo puede publicarse una jornada en borrador.']);
         $matches = $matchday->matches()->with('refereeAssignments')->get();
         if ($matches->isEmpty()) throw ValidationException::withMessages(['matchday' => 'La jornada debe contener al menos un partido.']);
@@ -265,6 +275,7 @@ class ScheduleController extends Controller
     {
         $league = $this->league($request);
         $this->assertMatch($match, $league);
+        $this->assertCompetitionMutable($match->competition);
         $target = $request->validated('status');
         $allowed = [
             'scheduled' => ['in_progress', 'postponed', 'cancelled'],
@@ -310,6 +321,16 @@ class ScheduleController extends Controller
     {
         $match->loadMissing('competition.tournament.season', 'matchday');
         $this->assertCompetition($match->competition, $league);
+    }
+
+    private function assertCompetitionMutable(Competition $competition): void
+    {
+        $competition->loadMissing('tournament.season');
+        if (in_array($competition->status->value, ['finished', 'archived', 'cancelled'], true)
+            || in_array($competition->tournament->status->value, ['finished', 'archived', 'cancelled'], true)
+            || in_array($competition->tournament->season->status->value, ['finished', 'archived', 'cancelled'], true)) {
+            throw ValidationException::withMessages(['competition' => 'La temporada, el torneo o la competencia ya concluyó y no admite cambios de programación.']);
+        }
     }
 
     private function participation(Matchday $matchday, int $id): TeamParticipation

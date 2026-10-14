@@ -26,7 +26,9 @@ for (const route of ["'/cedulas'", "'/partidos/{match}/cedula'", "'/cedulas/{rep
     if (!routes.includes(route)) throw new Error(`Falta ruta de cédulas: ${route}`);
 }
 const view = readFileSync('resources/js/pages/League/Reports/Index.vue', 'utf8');
-for (const element of ['Cédulas arbitrales', 'Alineaciones registradas', 'lineup_role', 'Agregar evento', 'Estoy conforme', 'No estoy conforme', 'Aprobar cédula', 'Descargar PDF']) {
+for (const element of ['Cédulas arbitrales', 'Alineaciones registradas', 'lineup_role', 'Agregar evento', 'Vista de solo lectura', 'Revisar antes de confirmar', 'Estoy conforme', 'No estoy conforme', 'Aprobar cédula', 'Descargar PDF aprobado', 'permissions.download']) {
     if (!view.includes(element)) throw new Error(`Falta control visual: ${element}`);
 }
+const controller = readFileSync('app/Http/Controllers/League/MatchReportController.php', 'utf8');
+if (!controller.includes('$report->status === MatchReportStatus::Approved')) throw new Error('El PDF no está restringido a cédulas aprobadas.');
 console.log('Validación estructural del Módulo 12 completada.');

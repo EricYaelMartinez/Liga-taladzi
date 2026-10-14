@@ -8,6 +8,7 @@ use App\Domain\Scheduling\Enums\LineupStatus;
 use App\Domain\Scheduling\Models\GameMatch;
 use App\Domain\Scheduling\Models\MatchLineup;
 use App\Domain\Scheduling\Services\MatchLineupService;
+use App\Domain\Scheduling\Services\MatchLifecycleService;
 use App\Domain\Team\Models\TeamParticipation;
 use App\Domain\Team\Models\TeamRepresentative;
 use App\Http\Controllers\Controller;
@@ -26,11 +27,13 @@ class LineupController extends Controller
         private readonly LeagueContext $context,
         private readonly AuditLogger $audit,
         private readonly MatchLineupService $lineups,
+        private readonly MatchLifecycleService $lifecycle,
     ) {}
 
     public function index(Request $request): Response
     {
         $league = $this->league($request);
+        $this->lifecycle->syncForLeague($league->id);
         $canManageAll = $this->hasPermission($request, $league, 'lineups.manage');
         $canManageOwn = $this->hasPermission($request, $league, 'lineups.manage-own');
         $ownedTeamIds = $canManageOwn ? $this->ownedTeamIds($request, $league) : collect();
@@ -38,7 +41,7 @@ class LineupController extends Controller
 
         $matches = GameMatch::query()
             ->whereHas('competition.tournament.season', fn ($query) => $query->where('league_id', $league->id))
-            ->whereHas('matchday', fn ($query) => $query->where('status', 'published'))
+            ->whereHas('matchday', fn ($query) => $query->whereIn('status', ['published', 'completed']))
             ->whereIn('status', ['scheduled', 'in_progress', 'finished', 'suspended', 'postponed'])
             ->when(! $canManageAll && $ownedTeamIds->isNotEmpty(), fn ($query) => $query->where(function ($teams) use ($ownedTeamIds): void {
                 $teams->whereHas('homeParticipation', fn ($participation) => $participation->whereIn('team_id', $ownedTeamIds))

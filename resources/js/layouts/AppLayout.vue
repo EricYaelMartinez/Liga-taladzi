@@ -19,6 +19,8 @@ const canViewReferees = computed(() => user.value?.permissions.includes('referee
 const canViewSchedule = computed(() => user.value?.permissions.includes('schedule.view') ?? false);
 const canViewLineups = computed(() => user.value?.permissions.includes('lineups.view') ?? false);
 const canViewReports = computed(() => user.value?.permissions.includes('reports.view') ?? false);
+const canViewStatistics = computed(() => user.value?.permissions.includes('statistics.view') ?? false);
+const canViewDiscipline = computed(() => user.value?.permissions.includes('discipline.view') ?? false);
 const canViewAudit = computed(() => user.value?.permissions.includes('audit.view') ?? false);
 const context = computed(() => page.props.activeContext);
 const brandStyle = computed<CSSProperties>(() => {
@@ -62,6 +64,8 @@ const brandStyle = computed<CSSProperties>(() => {
                         <Link v-if="context && canViewSchedule" href="/liga/calendario" class="nav-link" :class="{ 'nav-link-active': page.url.startsWith('/liga/calendario') || page.url.startsWith('/liga/jornadas') || page.url.startsWith('/liga/partidos') }">Calendario</Link>
                         <Link v-if="context && canViewLineups" href="/liga/alineaciones" class="nav-link" :class="{ 'nav-link-active': page.url.startsWith('/liga/alineaciones') }">Alineaciones</Link>
                         <Link v-if="context && canViewReports" href="/liga/cedulas" class="nav-link" :class="{ 'nav-link-active': page.url.startsWith('/liga/cedulas') }">Cédulas</Link>
+                        <Link v-if="context && canViewStatistics" href="/liga/resultados" class="nav-link" :class="{ 'nav-link-active': page.url.startsWith('/liga/resultados') }">Resultados</Link>
+                        <Link v-if="context && canViewDiscipline" href="/liga/disciplina" class="nav-link" :class="{ 'nav-link-active': page.url.startsWith('/liga/disciplina') || page.url.startsWith('/liga/sanciones') || page.url.startsWith('/liga/apelaciones') }">Disciplina</Link>
                         <Link v-if="context && canViewAudit" href="/liga/bitacora" class="nav-link" :class="{ 'nav-link-active': page.url.startsWith('/liga/bitacora') }">Bitácora</Link>
                     </nav>
                 </div>
@@ -92,6 +96,8 @@ const brandStyle = computed<CSSProperties>(() => {
                 <Link v-if="context && canViewSchedule" href="/liga/calendario" class="mobile-nav-link">Jornadas y calendario</Link>
                 <Link v-if="context && canViewLineups" href="/liga/alineaciones" class="mobile-nav-link">Alineaciones</Link>
                 <Link v-if="context && canViewReports" href="/liga/cedulas" class="mobile-nav-link">Cédulas arbitrales</Link>
+                <Link v-if="context && canViewStatistics" href="/liga/resultados" class="mobile-nav-link">Resultados y estadísticas</Link>
+                <Link v-if="context && canViewDiscipline" href="/liga/disciplina" class="mobile-nav-link">Sanciones y apelaciones</Link>
                 <Link v-if="context && canViewAudit" href="/liga/bitacora" class="mobile-nav-link">Bitácora</Link>
                 <Link href="/seleccionar-acceso" class="mobile-nav-link">Cambiar liga o rol</Link>
                 <Link href="/cerrar-sesion" method="post" as="button" class="mobile-nav-link w-full text-left">Cerrar sesión</Link>

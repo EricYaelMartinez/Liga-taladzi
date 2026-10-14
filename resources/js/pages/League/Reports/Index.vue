@@ -6,19 +6,21 @@ import { computed, ref } from 'vue';
 
 type Player = { id: number; name: string; jersey_number: number | null; position: string | null; lineup_role: 'starter' | 'substitute' | null; is_captain: boolean; display_order: number | null };
 type Team = { id: number; name: string; team: { id: number; name: string }; has_submitted_lineup: boolean; players: Player[] };
-type EventRow = { team_participation_id: number | null; player_registration_id: number | null; related_player_registration_id: number | null; type: string; minute: number | null; period: string; notes: string };
+type EventRow = { id?: number; team_participation_id: number | null; team_name?: string | null; player_registration_id: number | null; player_name?: string | null; related_player_registration_id: number | null; related_player_name?: string | null; type: string; minute: number | null; period: string; notes: string };
 type Confirmation = { team: string; representative: string | null; decision: string; notes: string | null; decided_at: string | null };
-type Report = { id: number; folio: string | null; status: string; home_score: number; away_score: number; home_no_show: boolean; away_no_show: boolean; summary: string | null; incidents: string | null; submitted_at: string | null; review_notes: string | null; events: EventRow[]; confirmations: Confirmation[] };
-type Match = { id: number; status: string; scheduled_at: string | null; competition: { name: string }; matchday: { name: string }; field: { name: string; venue: { name: string } } | null; home: Team; away: Team; report: Report | null; permissions: { edit: boolean; submit: boolean; confirm: boolean; review: boolean } };
+type Report = { id: number; folio: string | null; status: string; home_score: number; away_score: number; home_no_show: boolean; away_no_show: boolean; summary: string | null; incidents: string | null; submitted_at: string | null; review_notes: string | null; approved_at: string | null; events: EventRow[]; confirmations: Confirmation[] };
+type Match = { id: number; status: string; scheduled_at: string | null; competition: { name: string }; matchday: { name: string }; field: { name: string; venue: { name: string } } | null; home: Team; away: Team; officials: { role: string; name: string }[]; report: Report | null; permissions: { capture_available: boolean; edit: boolean; submit: boolean; view: boolean; confirm: boolean; review: boolean; download: boolean } };
 type PageLink = { url: string | null; label: string; active: boolean };
 const props = defineProps<{ matches: { data: Match[]; links: PageLink[]; total: number } }>();
 
 const editing = ref<Match | null>(null);
+const viewing = ref<Match | null>(null);
 const form = useForm<{ home_score: number; away_score: number; home_no_show: boolean; away_no_show: boolean; summary: string; incidents: string; events: EventRow[]; reason: string }>({ home_score: 0, away_score: 0, home_no_show: false, away_no_show: false, summary: '', incidents: '', events: [], reason: '' });
 const statuses: Record<string, string> = { draft: 'Borrador', awaiting_confirmations: 'Esperando conformidad', correction_required: 'Requiere corrección', under_review: 'En revisión', approved: 'Aprobada' };
 const decisions: Record<string, string> = { pending: 'Pendiente', confirmed: 'Conforme', rejected: 'No conforme' };
 const eventTypes: Record<string, string> = { goal: 'Gol', own_goal: 'Autogol', yellow_card: 'Tarjeta amarilla', second_yellow: 'Segunda amarilla', red_card: 'Tarjeta roja', substitution: 'Sustitución', injury: 'Lesión', incident: 'Incidente' };
 const periods: Record<string, string> = { first_half: 'Primer tiempo', halftime: 'Medio tiempo', second_half: 'Segundo tiempo', extra_time: 'Tiempo extra', penalties: 'Penales', post_match: 'Después del partido', match: 'Partido' };
+const officialRoles: Record<string, string> = { central: 'Árbitro central', assistant_1: 'Asistente 1', assistant_2: 'Asistente 2', fourth: 'Cuarto árbitro' };
 
 const derivedScore = computed(() => {
     if (!editing.value) return { home: 0, away: 0 };
@@ -40,6 +42,8 @@ function openEditor(match: Match): void {
     form.reason = report ? 'Actualización del borrador de cédula' : 'Captura inicial de cédula';
 }
 function closeEditor(): void { editing.value = null; form.reset(); }
+function openViewer(match: Match): void { viewing.value = match; }
+function closeViewer(): void { viewing.value = null; }
 function addEvent(): void { if (!editing.value) return; form.events.push({ team_participation_id: editing.value.home.id, player_registration_id: null, related_player_registration_id: null, type: 'goal', minute: null, period: 'match', notes: '' }); }
 function removeEvent(index: number): void { form.events.splice(index, 1); }
 function players(teamId: number | null): Player[] { if (!editing.value) return []; return teamId === editing.value.home.id ? editing.value.home.players : teamId === editing.value.away.id ? editing.value.away.players : []; }
@@ -55,7 +59,7 @@ function confirmReport(match: Match, decision: 'confirmed' | 'rejected'): void {
     if (!match.report) return;
     const notes = decision === 'rejected' ? prompt('Describe claramente el motivo de la inconformidad:') : 'Conformidad registrada por el representante';
     if (notes === null || (decision === 'rejected' && !notes.trim())) return;
-    router.post(`/liga/cedulas/${match.report.id}/conformidad`, { decision, notes }, { preserveScroll: true });
+    router.post(`/liga/cedulas/${match.report.id}/conformidad`, { decision, notes }, { preserveScroll: true, onSuccess: closeViewer });
 }
 function review(match: Match, action: 'approve' | 'return'): void {
     if (!match.report) return;
@@ -80,12 +84,47 @@ function review(match: Match, action: 'approve' | 'return'): void {
                         <div v-if="match.report?.folio" class="mt-4 text-center text-xs font-semibold text-slate-500">Folio {{ match.report.folio }}</div>
                         <div v-if="match.report?.confirmations.length" class="mt-5 grid gap-3 sm:grid-cols-2"><div v-for="item in match.report.confirmations" :key="item.team" class="rounded-xl border border-slate-200 p-3 text-sm"><div class="flex justify-between gap-2"><strong>{{ item.team }}</strong><span>{{ decisions[item.decision] }}</span></div><p class="mt-1 text-xs text-slate-500">{{ item.representative ?? 'Representante no disponible' }}<span v-if="item.decided_at"> · {{ localDate(item.decided_at) }}</span></p><p v-if="item.notes" class="mt-2 text-xs text-slate-600">{{ item.notes }}</p></div></div>
                         <p v-if="match.report?.review_notes" class="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900"><strong>Observación:</strong> {{ match.report.review_notes }}</p>
-                        <div class="mt-5 flex flex-wrap gap-2"><button v-if="match.permissions.edit" class="btn-secondary" @click="openEditor(match)">{{ match.report ? 'Editar borrador' : 'Capturar cédula' }}</button><button v-if="match.permissions.submit && match.report" class="btn-primary" @click="submit(match)">Enviar a conformidad</button><template v-if="match.permissions.confirm"><button class="btn-primary" @click="confirmReport(match, 'confirmed')">Estoy conforme</button><button class="btn-secondary" @click="confirmReport(match, 'rejected')">No estoy conforme</button></template><template v-if="match.permissions.review"><button class="btn-primary" @click="review(match, 'approve')">Aprobar cédula</button><button class="btn-secondary" @click="review(match, 'return')">Devolver para corrección</button></template><a v-if="match.report?.folio" class="btn-secondary" :href="`/liga/cedulas/${match.report.id}.pdf`">Descargar PDF</a></div>
+                        <p v-if="!match.permissions.capture_available && !match.report" class="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">La captura estará disponible cuando llegue la fecha y hora programada del partido.</p>
+                        <div class="mt-5 flex flex-wrap gap-2"><button v-if="match.permissions.view" class="btn-secondary" @click="openViewer(match)">{{ match.permissions.confirm ? 'Revisar antes de confirmar' : 'Ver cédula' }}</button><button v-if="match.permissions.edit" class="btn-secondary" @click="openEditor(match)">{{ match.report ? 'Editar borrador' : 'Capturar cédula' }}</button><button v-if="match.permissions.submit && match.report" class="btn-primary" @click="submit(match)">Enviar a conformidad</button><template v-if="match.permissions.review"><button class="btn-primary" @click="review(match, 'approve')">Aprobar cédula</button><button class="btn-secondary" @click="review(match, 'return')">Devolver para corrección</button></template><a v-if="match.permissions.download && match.report" class="btn-primary" :href="`/liga/cedulas/${match.report.id}.pdf`">Descargar PDF aprobado</a><span v-else-if="match.report?.folio" class="self-center text-xs text-slate-500">El PDF se habilitará después de la aprobación.</span></div>
                     </div>
                 </article>
             </div>
             <nav v-if="matches.links.length > 3" class="mt-6 flex flex-wrap justify-center gap-2"><Link v-for="link in matches.links" :key="link.label" :href="link.url ?? ''" class="rounded-lg border px-3 py-2 text-sm" :class="link.active ? 'border-league-600 bg-league-600 text-white' : 'border-slate-300 bg-white'" v-html="link.label" /></nav>
         </section>
+
+        <div v-if="viewing?.report" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4" @click.self="closeViewer">
+            <article class="max-h-[94vh] w-full max-w-6xl overflow-y-auto rounded-2xl bg-white">
+                <header class="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white p-5 sm:p-6">
+                    <div><p class="text-xs font-semibold uppercase tracking-[0.16em] text-league-600">Vista de solo lectura</p><h2 class="mt-1 text-xl font-semibold">Cédula: {{ viewing.home.name }} vs {{ viewing.away.name }}</h2><p class="mt-1 text-sm text-slate-500">{{ viewing.competition.name }} · {{ viewing.matchday.name }} · Folio {{ viewing.report.folio ?? 'pendiente' }}</p></div>
+                    <button type="button" class="text-2xl text-slate-400" aria-label="Cerrar" @click="closeViewer">×</button>
+                </header>
+                <div class="space-y-6 p-5 sm:p-6">
+                    <section class="grid gap-4 md:grid-cols-[1fr_auto_1fr] md:items-center">
+                        <div class="rounded-2xl bg-slate-50 p-5 text-center"><strong class="text-lg">{{ viewing.home.name }}</strong><p class="text-xs text-slate-500">Equipo local</p></div>
+                        <div class="rounded-2xl bg-slate-900 px-7 py-4 text-center text-3xl font-bold text-white">{{ viewing.report.home_score }} – {{ viewing.report.away_score }}</div>
+                        <div class="rounded-2xl bg-slate-50 p-5 text-center"><strong class="text-lg">{{ viewing.away.name }}</strong><p class="text-xs text-slate-500">Equipo visitante</p></div>
+                    </section>
+
+                    <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <div class="rounded-xl border border-slate-200 p-4"><span class="text-xs font-semibold uppercase text-slate-500">Fecha y cancha</span><p class="mt-2 text-sm">{{ localDate(viewing.scheduled_at) }}<br><span v-if="viewing.field">{{ viewing.field.venue.name }} / {{ viewing.field.name }}</span><span v-else>Sin cancha registrada</span></p></div>
+                        <div class="rounded-xl border border-slate-200 p-4"><span class="text-xs font-semibold uppercase text-slate-500">Estado</span><p class="mt-2 text-sm font-semibold">{{ statuses[viewing.report.status] }}</p><p v-if="viewing.report.submitted_at" class="mt-1 text-xs text-slate-500">Enviada: {{ localDate(viewing.report.submitted_at) }}</p></div>
+                        <div class="rounded-xl border border-slate-200 p-4"><span class="text-xs font-semibold uppercase text-slate-500">Cuerpo arbitral</span><p v-for="official in viewing.officials" :key="official.role" class="mt-2 text-sm"><strong>{{ officialRoles[official.role] ?? official.role }}:</strong> {{ official.name }}</p><p v-if="!viewing.officials.length" class="mt-2 text-sm text-slate-500">Sin árbitros registrados.</p></div>
+                    </section>
+
+                    <section v-if="viewing.report.home_no_show || viewing.report.away_no_show" class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><strong>Incomparecencia:</strong> {{ viewing.report.home_no_show ? viewing.home.name : viewing.away.name }}</section>
+
+                    <section><h3 class="font-semibold">Alineaciones registradas</h3><div class="mt-3 grid gap-4 lg:grid-cols-2"><article v-for="team in [viewing.home, viewing.away]" :key="team.id" class="rounded-xl border border-slate-200 p-4"><div class="flex items-center justify-between gap-3"><strong>{{ team.name }}</strong><span class="rounded-full px-2.5 py-1 text-[11px] font-semibold" :class="team.has_submitted_lineup ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'">{{ team.has_submitted_lineup ? 'Alineación enviada' : 'Plantilla activa' }}</span></div><template v-if="team.has_submitted_lineup"><p class="mt-3 text-xs font-semibold uppercase text-slate-500">Titulares ({{ lineupPlayers(team, 'starter').length }})</p><div class="mt-2 grid gap-1.5 sm:grid-cols-2"><span v-for="player in lineupPlayers(team, 'starter')" :key="player.id" class="rounded-lg bg-slate-50 px-3 py-2 text-sm">{{ playerLabel(player) }}</span></div><template v-if="lineupPlayers(team, 'substitute').length"><p class="mt-4 text-xs font-semibold uppercase text-slate-500">Suplentes ({{ lineupPlayers(team, 'substitute').length }})</p><div class="mt-2 grid gap-1.5 sm:grid-cols-2"><span v-for="player in lineupPlayers(team, 'substitute')" :key="player.id" class="rounded-lg bg-slate-50 px-3 py-2 text-sm">{{ playerLabel(player) }}</span></div></template></template><p v-else class="mt-3 text-sm text-slate-500">No se envió una alineación digital para este equipo.</p></article></div></section>
+
+                    <section><h3 class="font-semibold">Eventos del encuentro</h3><div class="mt-3 overflow-x-auto rounded-xl border border-slate-200"><table class="min-w-full text-left text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-4 py-3">Minuto</th><th class="px-4 py-3">Periodo</th><th class="px-4 py-3">Evento</th><th class="px-4 py-3">Equipo</th><th class="px-4 py-3">Jugador</th><th class="px-4 py-3">Detalle</th></tr></thead><tbody class="divide-y divide-slate-200"><tr v-for="event in viewing.report.events" :key="event.id"><td class="px-4 py-3">{{ event.minute ?? '—' }}</td><td class="px-4 py-3">{{ periods[event.period] ?? event.period }}</td><td class="px-4 py-3 font-medium">{{ eventTypes[event.type] ?? event.type }}</td><td class="px-4 py-3">{{ event.team_name ?? 'General' }}</td><td class="px-4 py-3">{{ event.player_name ?? '—' }}<span v-if="event.related_player_name"> → {{ event.related_player_name }}</span></td><td class="px-4 py-3">{{ event.notes || '—' }}</td></tr><tr v-if="!viewing.report.events.length"><td colspan="6" class="px-4 py-8 text-center text-slate-500">Sin eventos registrados.</td></tr></tbody></table></div></section>
+
+                    <section class="grid gap-4 lg:grid-cols-2"><div class="rounded-xl border border-slate-200 p-4"><h3 class="font-semibold">Resumen del encuentro</h3><p class="mt-3 whitespace-pre-wrap text-sm text-slate-700">{{ viewing.report.summary || 'Sin resumen.' }}</p></div><div class="rounded-xl border border-slate-200 p-4"><h3 class="font-semibold">Incidentes y observaciones</h3><p class="mt-3 whitespace-pre-wrap text-sm text-slate-700">{{ viewing.report.incidents || 'Sin incidentes.' }}</p></div></section>
+
+                    <section><h3 class="font-semibold">Conformidad de representantes</h3><div class="mt-3 grid gap-3 sm:grid-cols-2"><div v-for="item in viewing.report.confirmations" :key="item.team" class="rounded-xl border border-slate-200 p-4 text-sm"><div class="flex justify-between gap-3"><strong>{{ item.team }}</strong><span>{{ decisions[item.decision] }}</span></div><p class="mt-1 text-xs text-slate-500">{{ item.representative ?? 'Representante no disponible' }}<span v-if="item.decided_at"> · {{ localDate(item.decided_at) }}</span></p><p v-if="item.notes" class="mt-2 text-slate-700">{{ item.notes }}</p></div></div></section>
+                    <section v-if="viewing.report.review_notes" class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><strong>Revisión administrativa:</strong> {{ viewing.report.review_notes }}</section>
+                </div>
+                <footer class="sticky bottom-0 flex flex-wrap justify-end gap-3 border-t border-slate-200 bg-white p-5 sm:p-6"><button type="button" class="btn-secondary" @click="closeViewer">Cerrar</button><template v-if="viewing.permissions.confirm"><button type="button" class="btn-secondary" @click="confirmReport(viewing, 'rejected')">No estoy conforme</button><button type="button" class="btn-primary" @click="confirmReport(viewing, 'confirmed')">Estoy conforme</button></template><a v-if="viewing.permissions.download" class="btn-primary" :href="`/liga/cedulas/${viewing.report.id}.pdf`">Descargar PDF aprobado</a></footer>
+            </article>
+        </div>
 
         <div v-if="editing" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4" @click.self="closeEditor"><form class="max-h-[94vh] w-full max-w-6xl overflow-y-auto rounded-2xl bg-white p-6" @submit.prevent="save"><div class="flex justify-between gap-4"><div><h2 class="text-xl font-semibold">Cédula: {{ editing.home.name }} vs {{ editing.away.name }}</h2><p class="mt-1 text-sm text-slate-500">Registra todos los hechos antes de enviarla.</p></div><button type="button" class="text-2xl text-slate-400" @click="closeEditor">×</button></div>
             <FormError class="mt-4" :message="(form.errors as Record<string, string>).report || (form.errors as Record<string, string>).events" />

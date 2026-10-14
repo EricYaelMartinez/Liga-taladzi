@@ -14,8 +14,19 @@ use Illuminate\Validation\ValidationException;
 
 class MatchReportService
 {
+    public function assertCaptureAvailable(GameMatch $match): void
+    {
+        if (! $match->scheduled_at || $match->scheduled_at->isFuture()) {
+            throw ValidationException::withMessages(['report' => 'La cédula estará disponible cuando llegue la fecha y hora programada del partido.']);
+        }
+        if (! in_array($match->status->value, ['in_progress', 'suspended', 'finished'], true)) {
+            throw ValidationException::withMessages(['report' => 'El partido no se encuentra en un estado que permita capturar la cédula.']);
+        }
+    }
+
     public function save(GameMatch $match, array $data, User $actor): MatchReport
     {
+        $this->assertCaptureAvailable($match);
         $this->assertScoreAndEvents($match, $data);
 
         return DB::transaction(function () use ($match, $data, $actor): MatchReport {
@@ -40,6 +51,7 @@ class MatchReportService
 
     public function submit(GameMatch $match, User $actor, int $leagueId): MatchReport
     {
+        $this->assertCaptureAvailable($match);
         return DB::transaction(function () use ($match, $actor, $leagueId): MatchReport {
             GameMatch::whereKey($match->id)->lockForUpdate()->firstOrFail();
             $report = MatchReport::where('match_id', $match->id)->lockForUpdate()->first();

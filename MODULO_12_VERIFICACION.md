@@ -11,14 +11,16 @@ Registrar de forma segura los hechos de cada encuentro, obtener la conformidad i
 - Marcador, goles, autogoles, tarjetas, sustituciones, lesiones, incidentes e incomparecencia.
 - Eventos limitados a la alineación enviada; si no existe alineación digital, se usa la plantilla activa aprobada.
 - Titulares, capitán y suplentes de la alineación enviada visibles dentro de la cédula y en su PDF.
+- Captura y envío disponibles únicamente desde la fecha y hora programada del partido.
 - Marcador calculado y validado contra goles y autogoles, excepto en incomparecencia.
 - Borrador editable y bloqueo después del envío.
 - Folio único generado al enviar.
 - Conformidad o inconformidad independiente de los dos representantes, registrando usuario, fecha, hora y observaciones.
+- Vista completa de solo lectura para que cada representante revise alineaciones, marcador, eventos, árbitros, resumen e incidentes antes de confirmar.
 - Devolución automática cuando un representante manifiesta inconformidad.
 - Revisión administrativa con aprobación o devolución para corrección.
 - Resultado oficial y partido finalizado únicamente al aprobar.
-- PDF descargable y bitácora de todas las operaciones.
+- PDF oficial descargable únicamente después de la aprobación administrativa; el servidor bloquea también los accesos directos anticipados.
 - Interfaz adaptable a computadora y teléfono.
 
 ## Flujo
@@ -52,11 +54,12 @@ La migración es aditiva. No elimina partidos, alineaciones ni resultados existe
 6. Guarda el borrador y vuelve a editarlo.
 7. Envía la cédula a conformidad.
 8. Confirma que el árbitro ya no pueda editarla.
-9. Ingresa como representante local y pulsa **Estoy conforme**.
-10. Ingresa como representante visitante y registra su conformidad.
-11. Ingresa como administrador, revisa y aprueba.
-12. Comprueba que el estado sea **Aprobada**, descarga el PDF y revisa que incluya las alineaciones.
-13. Repite con una inconformidad y comprueba que vuelva a **Requiere corrección**.
+9. Ingresa como representante local, pulsa **Revisar antes de confirmar** y comprueba todos los datos de la cédula.
+10. Verifica que todavía no aparezca la descarga del PDF y pulsa **Estoy conforme** desde el visor.
+11. Ingresa como representante visitante, revisa la cédula completa y registra su conformidad.
+12. Ingresa como administrador, revisa y aprueba.
+13. Comprueba que el estado sea **Aprobada**, descarga el PDF y revisa que incluya las alineaciones.
+14. Repite con una inconformidad y comprueba que vuelva a **Requiere corrección**.
 
 ## Comprobaciones automáticas
 

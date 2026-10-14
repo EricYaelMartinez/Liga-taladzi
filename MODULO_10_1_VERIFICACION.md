@@ -18,6 +18,9 @@ Configurar horarios estándar y capacidad diaria por cancha, generar una o todas
 - Cambio posterior de horario o campo con validación de equipos, campo y árbitros ya asignados.
 - Historial y bitácora de todos los cambios.
 - Presentación visual agrupada por jornada.
+- Inicio automático de partidos al alcanzar la fecha y hora programada.
+- Cierre automático de jornadas completadas o completamente canceladas.
+- Jornadas terminales ocultas por defecto con opción para mostrar el historial.
 
 ## Instalación
 

@@ -20,6 +20,7 @@ use App\Domain\Scheduling\Models\PlayingField;
 use App\Domain\Scheduling\Models\ScheduleTimeSlot;
 use App\Domain\Scheduling\Models\Venue;
 use App\Domain\Scheduling\Services\RoundRobinScheduleGenerator;
+use App\Domain\Scheduling\Services\MatchLifecycleService;
 use App\Domain\Team\Models\Team;
 use App\Domain\Team\Models\TeamParticipation;
 use App\Support\LeagueContext;
@@ -46,6 +47,49 @@ class ScheduleManagementTest extends TestCase
     public function test_match_timestamps_include_the_timezone_when_written(): void
     {
         $this->assertSame('Y-m-d H:i:s P', (new GameMatch())->getDateFormat());
+    }
+
+    public function test_due_match_starts_automatically_and_records_the_change(): void
+    {
+        Carbon::setTestNow('2027-01-04 10:00:00');
+        try {
+            [, $league] = $this->administrator();
+            [$matchday, $match] = $this->fixture($league);
+            $matchday->update(['status' => 'published', 'published_at' => now()]);
+            $match->update([
+                'status' => 'scheduled',
+                'scheduled_at' => now()->subMinute(),
+                'scheduled_end_at' => now()->addMinutes(104),
+            ]);
+
+            app(MatchLifecycleService::class)->syncForLeague($league->id);
+
+            $this->assertSame('in_progress', $match->fresh()->status->value);
+            $this->assertDatabaseHas('match_schedule_changes', [
+                'match_id' => $match->id,
+                'type' => 'status_changed',
+                'performed_by' => null,
+            ]);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_matchdays_close_automatically_from_terminal_match_statuses(): void
+    {
+        [, $league] = $this->administrator();
+        [$completedMatchday, $finishedMatch] = $this->fixture($league);
+        $completedMatchday->update(['status' => 'published', 'published_at' => now()]);
+        $finishedMatch->update(['status' => 'finished']);
+
+        [$cancelledMatchday, $cancelledMatch] = $this->fixture($league);
+        $cancelledMatchday->update(['status' => 'published', 'published_at' => now()]);
+        $cancelledMatch->update(['status' => 'cancelled']);
+
+        app(MatchLifecycleService::class)->syncMatchdays($league->id);
+
+        $this->assertSame('completed', $completedMatchday->fresh()->status->value);
+        $this->assertSame('cancelled', $cancelledMatchday->fresh()->status->value);
     }
 
     public function test_generator_creates_rounds_for_odd_number_of_teams_without_fake_match(): void

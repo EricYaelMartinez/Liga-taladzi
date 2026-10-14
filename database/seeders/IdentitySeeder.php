@@ -67,6 +67,10 @@ class IdentitySeeder extends Seeder
             ['name' => 'Capturar y enviar cédulas asignadas', 'slug' => 'reports.manage', 'module' => 'match-report'],
             ['name' => 'Confirmar cédulas de su equipo', 'slug' => 'reports.confirm', 'module' => 'match-report'],
             ['name' => 'Revisar y aprobar cédulas', 'slug' => 'reports.review', 'module' => 'match-report'],
+            ['name' => 'Ver resultados y estadísticas', 'slug' => 'statistics.view', 'module' => 'statistics'],
+            ['name' => 'Ver sanciones y disciplina', 'slug' => 'discipline.view', 'module' => 'discipline'],
+            ['name' => 'Administrar sanciones y apelaciones', 'slug' => 'discipline.manage', 'module' => 'discipline'],
+            ['name' => 'Apelar sanciones de su equipo', 'slug' => 'discipline.appeal', 'module' => 'discipline'],
             ['name' => 'Ver bitácora', 'slug' => 'audit.view', 'module' => 'audit'],
         ];
 
@@ -110,21 +114,26 @@ class IdentitySeeder extends Seeder
             'reports.manage',
             'reports.confirm',
             'reports.review',
+            'statistics.view',
+            'discipline.view',
+            'discipline.manage',
             'audit.view',
         ])->pluck('id');
         Role::where('slug', 'league_admin')->firstOrFail()->permissions()->sync($leagueAdminPermissions);
 
         $dashboardPermission = Permission::where('slug', 'dashboard.view')->firstOrFail()->id;
-        $refereePermissions = Permission::whereIn('slug', ['dashboard.view', 'referees.view', 'schedule.view', 'lineups.view', 'reports.view', 'reports.manage'])->pluck('id');
+        $refereePermissions = Permission::whereIn('slug', ['dashboard.view', 'referees.view', 'schedule.view', 'lineups.view', 'reports.view', 'reports.manage', 'statistics.view'])->pluck('id');
         Role::where('slug', 'referee')->firstOrFail()->permissions()->sync($refereePermissions);
         $playerPermissions = Permission::whereIn('slug', [
-            'dashboard.view', 'players.view', 'players.self-update', 'schedule.view',
+            'dashboard.view', 'players.view', 'players.self-update', 'schedule.view', 'statistics.view', 'discipline.view',
         ])->pluck('id');
         Role::where('slug', 'player')->firstOrFail()->permissions()->sync($playerPermissions);
         $representativePermissions = Permission::whereIn('slug', [
             'dashboard.view', 'teams.view', 'teams.propose-update', 'players.view', 'players.propose', 'schedule.view',
             'lineups.view', 'lineups.manage-own',
             'reports.view', 'reports.confirm',
+            'statistics.view',
+            'discipline.view', 'discipline.appeal',
         ])->pluck('id');
         Role::where('slug', 'team_representative')->firstOrFail()->permissions()->sync($representativePermissions);
     }

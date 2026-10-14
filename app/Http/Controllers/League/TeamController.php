@@ -371,14 +371,18 @@ class TeamController extends Controller
 
     private function availableCompetitions(League $league)
     {
-        return Competition::whereHas('tournament.season', fn ($query) => $query->where('league_id', $league->id)->whereNotIn('status', ['archived', 'cancelled']))
+        return Competition::whereNotIn('status', ['finished', 'archived', 'cancelled'])
+            ->whereHas('tournament', fn ($query) => $query->whereNotIn('status', ['finished', 'archived', 'cancelled']))
+            ->whereHas('tournament.season', fn ($query) => $query->where('league_id', $league->id)->whereNotIn('status', ['finished', 'archived', 'cancelled']))
             ->with(['tournament:id,name,season_id', 'tournament.season:id,name', 'division:id,name', 'category:id,name'])
             ->orderBy('name')->get();
     }
 
     private function competition(League $league, int $id): Competition
     {
-        return Competition::whereHas('tournament.season', fn ($query) => $query->where('league_id', $league->id)->whereNotIn('status', ['archived', 'cancelled']))
+        return Competition::whereNotIn('status', ['finished', 'archived', 'cancelled'])
+            ->whereHas('tournament', fn ($query) => $query->whereNotIn('status', ['finished', 'archived', 'cancelled']))
+            ->whereHas('tournament.season', fn ($query) => $query->where('league_id', $league->id)->whereNotIn('status', ['finished', 'archived', 'cancelled']))
             ->with('tournament.season')->findOrFail($id);
     }
 

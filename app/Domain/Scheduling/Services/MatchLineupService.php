@@ -2,6 +2,7 @@
 
 namespace App\Domain\Scheduling\Services;
 
+use App\Domain\Discipline\Models\Sanction;
 use App\Domain\Identity\Models\User;
 use App\Domain\Player\Models\PlayerRegistration;
 use App\Domain\Scheduling\Enums\LineupStatus;
@@ -49,6 +50,10 @@ class MatchLineupService
             if ($registrations->count() !== count($registrationIds)) {
                 throw ValidationException::withMessages(['players' => 'Uno de los jugadores no está activo y aprobado en la plantilla de este equipo.']);
             }
+            $suspendedPlayerIds = Sanction::whereIn('player_id', $registrations->pluck('player_id'))->where('kind', 'suspension')->where('status', 'active')->pluck('player_id');
+            if ($suspendedPlayerIds->isNotEmpty()) {
+                throw ValidationException::withMessages(['players' => 'La alineación contiene uno o más jugadores con una suspensión vigente.']);
+            }
 
             $lineup ??= MatchLineup::create([
                 'match_id' => $match->id,
@@ -92,6 +97,10 @@ class MatchLineupService
             $startersCount = $lineup->players()->where('role', 'starter')->count();
             if ($startersCount < self::MIN_STARTERS || $startersCount > self::MAX_STARTERS) {
                 throw ValidationException::withMessages(['lineup' => 'Para enviar la alineación debes registrar entre 8 y 11 jugadores titulares.']);
+            }
+            $playerIds = PlayerRegistration::whereIn('id', $lineup->players()->pluck('player_registration_id'))->pluck('player_id');
+            if (Sanction::whereIn('player_id', $playerIds)->where('kind', 'suspension')->where('status', 'active')->exists()) {
+                throw ValidationException::withMessages(['lineup' => 'No puedes enviar una alineación que contiene jugadores con una suspensión vigente.']);
             }
             $lineup->update([
                 'status' => LineupStatus::Submitted,

@@ -146,6 +146,39 @@ class CompetitionSetupTest extends TestCase
         $this->assertSame('archived', $season->status->value);
     }
 
+    public function test_terminal_season_status_propagates_to_tournaments_and_competitions(): void
+    {
+        [$administrator, $league] = $this->leagueAdministrator(true);
+        [$tournament, $division, $category] = $this->structure($league, $administrator);
+        $season = $tournament->season;
+        $season->update(['status' => 'active']);
+        $tournament->update(['status' => 'active']);
+        $regulation = Regulation::create([
+            'league_id' => $league->id, 'name' => 'Reglamento terminal', 'version' => 1,
+            'status' => 'in_use', 'league_settings_snapshot' => [],
+        ]);
+        $competition = Competition::create([
+            'tournament_id' => $tournament->id, 'division_id' => $division->id,
+            'category_id' => $category->id, 'regulation_id' => $regulation->id,
+            'name' => 'Competencia terminal', 'format' => 'round_robin',
+            'regular_leg_count' => 1, 'knockout_leg_count' => 2,
+            'minimum_roster_size' => 1, 'maximum_roster_size' => 30, 'status' => 'active',
+        ]);
+        $session = $this->contextSession($league, $this->leagueAdminRole);
+
+        $this->actingAs($administrator)->withSession($session)
+            ->put("/liga/temporadas/{$season->id}/estado", ['status' => 'finished'])
+            ->assertSessionHasNoErrors();
+        $this->assertSame('finished', $tournament->fresh()->status->value);
+        $this->assertSame('finished', $competition->fresh()->status->value);
+
+        $this->actingAs($administrator)->withSession($session)
+            ->put("/liga/temporadas/{$season->id}/estado", ['status' => 'archived'])
+            ->assertSessionHasNoErrors();
+        $this->assertSame('archived', $tournament->fresh()->status->value);
+        $this->assertSame('archived', $competition->fresh()->status->value);
+    }
+
     public function test_player_cannot_manage_competitions_and_cross_league_ids_are_rejected(): void
     {
         $league = $this->league('Liga Taladzi');

@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\League;
 
 use App\Domain\League\Models\League;
+use App\Domain\Discipline\Services\DisciplineService;
 use App\Domain\Referee\Models\Referee;
 use App\Domain\Scheduling\Enums\MatchReportStatus;
 use App\Domain\Scheduling\Models\GameMatch;
 use App\Domain\Scheduling\Models\MatchReport;
 use App\Domain\Scheduling\Services\MatchReportService;
+use App\Domain\Scheduling\Services\MatchLifecycleService;
 use App\Domain\Team\Models\TeamRepresentative;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ConfirmMatchReportRequest;
@@ -24,11 +26,12 @@ use Symfony\Component\HttpFoundation\Response;
 
 class MatchReportController extends Controller
 {
-    public function __construct(private readonly LeagueContext $context, private readonly MatchReportService $reports, private readonly AuditLogger $audit) {}
+    public function __construct(private readonly LeagueContext $context, private readonly MatchReportService $reports, private readonly AuditLogger $audit, private readonly MatchLifecycleService $lifecycle, private readonly DisciplineService $discipline) {}
 
     public function index(Request $request): InertiaResponse
     {
         $league = $this->league($request);
+        $this->lifecycle->syncForLeague($league->id);
         $canReview = $this->hasPermission($request, $league, 'reports.review');
         $refereeIds = Referee::where('league_id', $league->id)->where('user_id', $request->user()->id)->pluck('id');
         $ownedTeamIds = TeamRepresentative::where('user_id', $request->user()->id)->where('status', 'active')
@@ -36,7 +39,7 @@ class MatchReportController extends Controller
 
         $matches = GameMatch::query()
             ->whereHas('competition.tournament.season', fn ($query) => $query->where('league_id', $league->id))
-            ->whereHas('matchday', fn ($query) => $query->where('status', 'published'))
+            ->whereHas('matchday', fn ($query) => $query->whereIn('status', ['published', 'completed']))
             ->whereIn('status', ['scheduled', 'in_progress', 'finished', 'suspended'])
             ->when(! $canReview, fn ($query) => $query->where(function ($scope) use ($refereeIds, $ownedTeamIds): void {
                 $scope->whereHas('refereeAssignments', fn ($assignments) => $assignments->whereIn('referee_id', $refereeIds))
@@ -52,7 +55,7 @@ class MatchReportController extends Controller
 
     public function save(SaveMatchReportRequest $request, GameMatch $match): RedirectResponse
     {
-        $league = $this->league($request); $this->assertMatch($match, $league); $this->authorizeEdit($request, $match, $league);
+        $league = $this->league($request); $this->assertMatch($match, $league); $match = $this->lifecycle->syncMatch($match); $this->authorizeEdit($request, $match, $league);
         $old = $match->report?->load('events')->toArray() ?? [];
         $report = $this->reports->save($match->load('homeParticipation', 'awayParticipation'), $request->safe()->except('reason'), $request->user());
         $this->audit->log($request, 'match_report.saved', $report, $league, $old, $report->toArray(), $request->string('reason')->toString());
@@ -62,7 +65,7 @@ class MatchReportController extends Controller
     public function submit(Request $request, GameMatch $match): RedirectResponse
     {
         $data = $request->validate(['reason' => ['required', 'string', 'max:500']]);
-        $league = $this->league($request); $this->assertMatch($match, $league); $this->authorizeCentral($request, $match, $league);
+        $league = $this->league($request); $this->assertMatch($match, $league); $match = $this->lifecycle->syncMatch($match); $this->authorizeCentral($request, $match, $league);
         $report = $this->reports->submit($match->load('homeParticipation', 'awayParticipation'), $request->user(), $league->id);
         $this->audit->log($request, 'match_report.submitted', $report, $league, [], ['status' => $report->status->value, 'folio' => $report->folio], $data['reason']);
         return back()->with('success', 'Cédula enviada a conformidad de los dos representantes.');
@@ -84,6 +87,11 @@ class MatchReportController extends Controller
         $old = $report->toArray();
         $updated = $this->reports->review($report, $request->validated('action'), $request->validated('notes'), $request->user());
         $this->audit->log($request, 'match_report.reviewed', $updated, $league, $old, $updated->toArray(), $request->validated('notes'));
+        if ($request->validated('action') === 'approve') {
+            foreach ($this->discipline->syncReport($updated) as $sanction) {
+                $this->audit->log($request, 'discipline.sanction.automatic', $sanction, $league, [], $sanction->toArray(), $sanction->reason);
+            }
+        }
         return back()->with('success', $request->validated('action') === 'approve' ? 'Cédula aprobada y resultado oficial registrado.' : 'Cédula devuelta al árbitro para corrección.');
     }
 
@@ -92,6 +100,7 @@ class MatchReportController extends Controller
         $league = $this->league($request); $this->assertReport($report, $league);
         $match = $report->match()->with($this->matchRelations())->firstOrFail();
         $this->authorizeView($request, $match, $league);
+        abort_unless($report->status === MatchReportStatus::Approved, 403, 'El PDF oficial estará disponible cuando la cédula sea aprobada.');
         $report->load('events.playerRegistration.player', 'events.relatedPlayerRegistration.player', 'events.teamParticipation', 'confirmations.representative', 'confirmations.teamParticipation.team', 'submittedBy', 'reviewedBy');
         return Pdf::loadView('reports.match', compact('league', 'match', 'report'))->setPaper('a4', 'portrait')->download('cedula-'.($report->folio ?: $match->id).'.pdf');
     }
@@ -100,14 +109,22 @@ class MatchReportController extends Controller
     {
         $central = $match->refereeAssignments->contains(fn ($assignment) => $assignment->role === 'central' && $refereeIds->contains($assignment->referee_id));
         $report = $match->report;
+        $captureAvailable = $match->scheduled_at && ! $match->scheduled_at->isFuture()
+            && in_array($match->status->value, ['in_progress', 'suspended', 'finished'], true);
         $editableStatus = ! $report || in_array($report->status, [MatchReportStatus::Draft, MatchReportStatus::CorrectionRequired], true);
         $confirmation = $report?->confirmations->firstWhere('representative_user_id', $request->user()->id);
+        $assigned = $match->refereeAssignments->contains(fn ($assignment) => $refereeIds->contains($assignment->referee_id));
+        $canViewReport = $report !== null && ($report->status !== MatchReportStatus::Draft || $canReview || $assigned);
         return [
             'id' => $match->id, 'status' => $match->status->value, 'scheduled_at' => $match->scheduled_at?->toIso8601String(),
             'competition' => $match->competition, 'matchday' => $match->matchday, 'field' => $match->field,
             'home' => $this->teamData($match, $match->homeParticipation), 'away' => $this->teamData($match, $match->awayParticipation),
-            'report' => $report ? $this->reportData($report) : null,
-            'permissions' => ['edit' => $editableStatus && ($canReview || ($central && $this->hasPermission($request, $league, 'reports.manage'))), 'submit' => $editableStatus && $central, 'confirm' => $report?->status === MatchReportStatus::AwaitingConfirmations && $confirmation?->decision === 'pending', 'review' => $canReview && $report?->status === MatchReportStatus::UnderReview],
+            'officials' => $match->refereeAssignments->map(fn ($assignment): array => [
+                'role' => $assignment->role,
+                'name' => $assignment->referee->user?->name ?? 'Árbitro sin usuario',
+            ])->values(),
+            'report' => $canViewReport ? $this->reportData($report) : null,
+            'permissions' => ['capture_available' => $captureAvailable, 'edit' => $captureAvailable && $editableStatus && ($canReview || ($central && $this->hasPermission($request, $league, 'reports.manage'))), 'submit' => $captureAvailable && $editableStatus && $central, 'view' => (bool) $canViewReport, 'confirm' => $report?->status === MatchReportStatus::AwaitingConfirmations && $confirmation?->decision === 'pending', 'review' => $canReview && $report?->status === MatchReportStatus::UnderReview, 'download' => $canViewReport && $report->status === MatchReportStatus::Approved],
         ];
     }
 
@@ -152,21 +169,23 @@ class MatchReportController extends Controller
 
     private function reportData(MatchReport $report): array
     {
-        return ['id' => $report->id, 'folio' => $report->folio, 'status' => $report->status->value, 'home_score' => $report->home_score, 'away_score' => $report->away_score, 'home_no_show' => $report->home_no_show, 'away_no_show' => $report->away_no_show, 'summary' => $report->summary, 'incidents' => $report->incidents, 'submitted_at' => $report->submitted_at?->toIso8601String(), 'review_notes' => $report->review_notes, 'events' => $report->events->map(fn ($event) => ['id' => $event->id, 'team_participation_id' => $event->team_participation_id, 'player_registration_id' => $event->player_registration_id, 'related_player_registration_id' => $event->related_player_registration_id, 'type' => $event->type, 'minute' => $event->minute, 'period' => $event->period, 'notes' => $event->notes])->values(), 'confirmations' => $report->confirmations->map(fn ($item) => ['team' => $item->teamParticipation->registered_name, 'representative' => $item->representative?->name, 'decision' => $item->decision, 'notes' => $item->notes, 'decided_at' => $item->decided_at?->toIso8601String()])->values()];
+        return ['id' => $report->id, 'folio' => $report->folio, 'status' => $report->status->value, 'home_score' => $report->home_score, 'away_score' => $report->away_score, 'home_no_show' => $report->home_no_show, 'away_no_show' => $report->away_no_show, 'summary' => $report->summary, 'incidents' => $report->incidents, 'submitted_at' => $report->submitted_at?->toIso8601String(), 'review_notes' => $report->review_notes, 'approved_at' => $report->approved_at?->toIso8601String(), 'events' => $report->events->map(fn ($event) => ['id' => $event->id, 'team_participation_id' => $event->team_participation_id, 'team_name' => $event->teamParticipation?->registered_name, 'player_registration_id' => $event->player_registration_id, 'player_name' => $event->playerRegistration?->player?->full_name, 'related_player_registration_id' => $event->related_player_registration_id, 'related_player_name' => $event->relatedPlayerRegistration?->player?->full_name, 'type' => $event->type, 'minute' => $event->minute, 'period' => $event->period, 'notes' => $event->notes])->values(), 'confirmations' => $report->confirmations->map(fn ($item) => ['team' => $item->teamParticipation->registered_name, 'representative' => $item->representative?->name, 'decision' => $item->decision, 'notes' => $item->notes, 'decided_at' => $item->decided_at?->toIso8601String()])->values()];
     }
 
     private function matchRelations(): array
     {
-        return ['competition:id,name', 'matchday:id,name,number', 'field.venue:id,name', 'refereeAssignments:id,match_id,referee_id,role', 'homeParticipation.team:id,name,short_name', 'awayParticipation.team:id,name,short_name', 'homeParticipation.playerRegistrations' => fn ($query) => $query->where('status', 'active')->whereHas('player', fn ($player) => $player->where('status', 'active'))->with('player:id,full_name,position,status')->orderBy('jersey_number'), 'awayParticipation.playerRegistrations' => fn ($query) => $query->where('status', 'active')->whereHas('player', fn ($player) => $player->where('status', 'active'))->with('player:id,full_name,position,status')->orderBy('jersey_number'), 'lineups.players' => fn ($query) => $query->with('registration.player:id,full_name')->orderBy('display_order'), 'report.events', 'report.confirmations.representative:id,name', 'report.confirmations.teamParticipation:id,registered_name'];
+        return ['competition:id,name', 'matchday:id,name,number', 'field.venue:id,name', 'refereeAssignments:id,match_id,referee_id,role', 'refereeAssignments.referee:id,user_id', 'refereeAssignments.referee.user:id,name', 'homeParticipation.team:id,name,short_name', 'awayParticipation.team:id,name,short_name', 'homeParticipation.playerRegistrations' => fn ($query) => $query->where('status', 'active')->whereHas('player', fn ($player) => $player->where('status', 'active'))->with('player:id,full_name,position,status')->orderBy('jersey_number'), 'awayParticipation.playerRegistrations' => fn ($query) => $query->where('status', 'active')->whereHas('player', fn ($player) => $player->where('status', 'active'))->with('player:id,full_name,position,status')->orderBy('jersey_number'), 'lineups.players' => fn ($query) => $query->with('registration.player:id,full_name')->orderBy('display_order'), 'report.events.playerRegistration.player:id,full_name', 'report.events.relatedPlayerRegistration.player:id,full_name', 'report.events.teamParticipation:id,registered_name', 'report.confirmations.representative:id,name', 'report.confirmations.teamParticipation:id,registered_name'];
     }
 
     private function authorizeEdit(Request $request, GameMatch $match, League $league): void
     {
+        $this->reports->assertCaptureAvailable($match);
         if ($this->hasPermission($request, $league, 'reports.review')) return;
         $this->authorizeCentral($request, $match, $league);
     }
     private function authorizeCentral(Request $request, GameMatch $match, League $league): void
     {
+        $this->reports->assertCaptureAvailable($match);
         abort_unless($this->hasPermission($request, $league, 'reports.manage') && $match->refereeAssignments()->where('role', 'central')->whereHas('referee', fn ($query) => $query->where('user_id', $request->user()->id))->exists(), 403);
     }
     private function authorizeView(Request $request, GameMatch $match, League $league): void

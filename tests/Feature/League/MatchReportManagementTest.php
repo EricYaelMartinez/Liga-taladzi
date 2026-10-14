@@ -68,6 +68,69 @@ class MatchReportManagementTest extends TestCase
         $this->actingAs($s['refereeUser'])->withSession($this->leagueSession($s, 'referee'))->put("/liga/partidos/{$s['match']->id}/cedula", $this->payload($s, 1, 0))->assertSessionHasNoErrors();
     }
 
+    public function test_representative_can_review_the_full_report_but_pdf_requires_approval(): void
+    {
+        $s = $this->scenario();
+        $refereeSession = $this->leagueSession($s, 'referee');
+        $representativeSession = $this->leagueSession($s, 'team_representative');
+        $administratorSession = $this->leagueSession($s, 'league_admin');
+
+        $this->actingAs($s['refereeUser'])->withSession($refereeSession)
+            ->put("/liga/partidos/{$s['match']->id}/cedula", $this->payload($s, 1, 0))
+            ->assertSessionHasNoErrors();
+        $this->actingAs($s['refereeUser'])->withSession($refereeSession)
+            ->post("/liga/partidos/{$s['match']->id}/cedula/enviar", ['reason' => 'Cierre arbitral'])
+            ->assertSessionHasNoErrors();
+        $report = MatchReport::firstOrFail();
+
+        $this->actingAs($s['homeRepresentative'])->withSession($representativeSession)
+            ->get('/liga/cedulas')
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('League/Reports/Index')
+                ->where('matches.data.0.report.status', 'awaiting_confirmations')
+                ->where('matches.data.0.report.summary', 'Partido concluido')
+                ->where('matches.data.0.report.events.0.player_name', 'Goleador')
+                ->where('matches.data.0.report.events.0.team_name', 'Locales')
+                ->where('matches.data.0.permissions.view', true)
+                ->where('matches.data.0.permissions.confirm', true)
+                ->where('matches.data.0.permissions.download', false));
+
+        $this->actingAs($s['homeRepresentative'])->withSession($representativeSession)
+            ->get("/liga/cedulas/{$report->id}.pdf")
+            ->assertForbidden();
+
+        $this->actingAs($s['homeRepresentative'])->withSession($representativeSession)
+            ->post("/liga/cedulas/{$report->id}/conformidad", ['decision' => 'confirmed', 'notes' => 'Conforme'])
+            ->assertSessionHasNoErrors();
+        $this->actingAs($s['awayRepresentative'])->withSession($representativeSession)
+            ->post("/liga/cedulas/{$report->id}/conformidad", ['decision' => 'confirmed', 'notes' => 'Conforme'])
+            ->assertSessionHasNoErrors();
+        $this->actingAs($s['administrator'])->withSession($administratorSession)
+            ->post("/liga/cedulas/{$report->id}/revision", ['action' => 'approve', 'notes' => 'Resultado validado'])
+            ->assertSessionHasNoErrors();
+
+        $this->actingAs($s['homeRepresentative'])->withSession($representativeSession)
+            ->get("/liga/cedulas/{$report->id}.pdf")
+            ->assertDownload("cedula-{$report->folio}.pdf");
+    }
+
+    public function test_report_cannot_be_captured_before_the_scheduled_kickoff(): void
+    {
+        $s = $this->scenario();
+        $s['match']->update([
+            'status' => 'scheduled',
+            'scheduled_at' => now()->addHour(),
+            'scheduled_end_at' => now()->addHours(2),
+        ]);
+
+        $this->actingAs($s['refereeUser'])
+            ->withSession($this->leagueSession($s, 'referee'))
+            ->put("/liga/partidos/{$s['match']->id}/cedula", $this->payload($s, 1, 0))
+            ->assertSessionHasErrors('report');
+
+        $this->assertDatabaseMissing('match_reports', ['match_id' => $s['match']->id]);
+    }
+
     public function test_report_uses_only_players_from_the_submitted_lineup_when_available(): void
     {
         $s = $this->scenario();
@@ -133,7 +196,7 @@ class MatchReportManagementTest extends TestCase
         TeamRepresentative::create(['team_id' => $home->team_id, 'league_membership_id' => $homeRepresentative->leagueMemberships()->first()->id, 'user_id' => $homeRepresentative->id, 'photo_path' => 'private/home-photo.png', 'ine_path' => 'private/home-ine.png', 'status' => 'active', 'started_at' => now(), 'assigned_by' => $administrator->id]);
         TeamRepresentative::create(['team_id' => $away->team_id, 'league_membership_id' => $awayRepresentative->leagueMemberships()->first()->id, 'user_id' => $awayRepresentative->id, 'photo_path' => 'private/away-photo.png', 'ine_path' => 'private/away-ine.png', 'status' => 'active', 'started_at' => now(), 'assigned_by' => $administrator->id]);
         $matchday = Matchday::create(['competition_id' => $competition->id, 'number' => 1, 'name' => 'Jornada 1', 'phase' => 'regular', 'starts_on' => '2027-01-04', 'ends_on' => '2027-01-04', 'status' => 'published', 'published_at' => now()]);
-        $match = GameMatch::create(['competition_id' => $competition->id, 'matchday_id' => $matchday->id, 'home_team_participation_id' => $home->id, 'away_team_participation_id' => $away->id, 'scheduled_at' => '2027-01-04 10:00:00', 'duration_minutes' => 90, 'status' => 'scheduled']);
+        $match = GameMatch::create(['competition_id' => $competition->id, 'matchday_id' => $matchday->id, 'home_team_participation_id' => $home->id, 'away_team_participation_id' => $away->id, 'scheduled_at' => now()->subMinutes(5), 'scheduled_end_at' => now()->addMinutes(85), 'duration_minutes' => 90, 'status' => 'scheduled']);
         $referee = Referee::create(['league_id' => $league->id, 'user_id' => $refereeUser->id, 'category_level' => 'Estatal', 'status' => 'active']);
         MatchRefereeAssignment::create(['match_id' => $match->id, 'referee_id' => $referee->id, 'role' => 'central', 'assigned_by' => $administrator->id]);
         $homePlayer = $this->registration($league, $home, 'Goleador', 9); $awayPlayer = $this->registration($league, $away, 'Defensa', 4);

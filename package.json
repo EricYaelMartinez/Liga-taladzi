@@ -19,7 +19,10 @@
     "validate:module10": "node scripts/validate-module10.mjs",
     "validate:module10.1": "node scripts/validate-module10-1.mjs",
     "validate:module11": "node scripts/validate-module11.mjs",
-    "validate:module12": "node scripts/validate-module12.mjs"
+    "validate:module12": "node scripts/validate-module12.mjs",
+    "validate:module13": "node scripts/validate-module13.mjs",
+    "validate:module14": "node scripts/validate-module14.mjs",
+    "validate:lifecycle": "node scripts/validate-lifecycle-hardening.mjs"
   },
   "dependencies": {
     "@inertiajs/vue3": "^2.0.0",

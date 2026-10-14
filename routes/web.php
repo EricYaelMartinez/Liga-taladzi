@@ -11,6 +11,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EnvironmentController;
 use App\Http\Controllers\League\AuditLogController;
 use App\Http\Controllers\League\CompetitionSetupController;
+use App\Http\Controllers\League\DisciplineController;
 use App\Http\Controllers\League\FieldController;
 use App\Http\Controllers\League\LineupController;
 use App\Http\Controllers\League\MatchReportController;
@@ -22,6 +23,7 @@ use App\Http\Controllers\League\PlayerDocumentController;
 use App\Http\Controllers\League\RefereeController;
 use App\Http\Controllers\League\ScheduleController;
 use App\Http\Controllers\League\SettingsController;
+use App\Http\Controllers\League\StatisticsController;
 use App\Http\Controllers\League\TeamController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -153,6 +155,18 @@ Route::middleware(['auth', 'active'])->group(function (): void {
                 Route::post('/cedulas/{report}/conformidad', 'confirm')->middleware('permission:reports.confirm')->name('reports.confirm');
                 Route::post('/cedulas/{report}/revision', 'review')->middleware('permission:reports.review')->name('reports.review');
                 Route::get('/cedulas/{report}.pdf', 'download')->name('reports.download');
+            });
+            Route::get('/resultados', StatisticsController::class)->middleware('permission:statistics.view')->name('statistics.index');
+            Route::controller(DisciplineController::class)->middleware('permission:discipline.view')->group(function (): void {
+                Route::get('/disciplina', 'index')->name('discipline.index');
+                Route::post('/sanciones/{sanction}/apelaciones', 'appeal')->middleware('permission:discipline.appeal')->name('discipline.appeals.store');
+                Route::get('/apelaciones/{appeal}/evidencia', 'evidence')->name('discipline.appeals.evidence');
+                Route::middleware('permission:discipline.manage')->group(function (): void {
+                    Route::put('/disciplina/configuracion', 'updatePolicy')->name('discipline.policy.update');
+                    Route::post('/sanciones', 'store')->name('discipline.sanctions.store');
+                    Route::post('/sanciones/sincronizar', 'sync')->name('discipline.sanctions.sync');
+                    Route::post('/apelaciones/{appeal}/resolver', 'resolve')->name('discipline.appeals.resolve');
+                });
             });
             Route::controller(PlayerController::class)->middleware('permission:players.view')->group(function (): void {
                 Route::get('/jugadores', 'index')->name('players.index');

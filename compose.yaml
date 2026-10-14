@@ -36,6 +36,22 @@ services:
     networks:
       - liga_network
 
+  scheduler:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    working_dir: /var/www/html
+    command: php artisan schedule:work
+    volumes:
+      - ./:/var/www/html
+      - vendor_data:/var/www/html/vendor
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - liga_network
+
   frontend:
     image: node:24-alpine
     working_dir: /var/www/html

@@ -100,8 +100,20 @@ class CompetitionSetupController extends Controller
         }
 
         $old = $season->status->value;
-        $season->update(['status' => $target]);
-        $this->audit->log($request, 'competition.season.status_changed', $season, $league, ['status' => $old], ['status' => $target->value]);
+        $propagated = DB::transaction(function () use ($season, $target): array {
+            $locked = Season::whereKey($season->id)->lockForUpdate()->firstOrFail();
+            $locked->update(['status' => $target]);
+            $counts = ['tournaments' => 0, 'competitions' => 0];
+            if (in_array($target, [SeasonStatus::Finished, SeasonStatus::Archived, SeasonStatus::Cancelled], true)) {
+                $tournamentIds = $locked->tournaments()->pluck('id');
+                $counts['competitions'] = Competition::whereIn('tournament_id', $tournamentIds)->update(['status' => $target->value]);
+                $counts['tournaments'] = Tournament::whereIn('id', $tournamentIds)->update(['status' => $target->value]);
+            }
+
+            return $counts;
+        });
+        $season->refresh();
+        $this->audit->log($request, 'competition.season.status_changed', $season, $league, ['status' => $old], ['status' => $target->value, 'propagated' => $propagated]);
 
         return back()->with('success', 'Estado de la temporada actualizado.');
     }
@@ -130,7 +142,7 @@ class CompetitionSetupController extends Controller
     {
         $league = $this->league($request);
         $season = Season::where('league_id', $league->id)->findOrFail($request->integer('season_id'));
-        if (in_array($season->status, [SeasonStatus::Archived, SeasonStatus::Cancelled], true)) {
+        if (in_array($season->status, [SeasonStatus::Finished, SeasonStatus::Archived, SeasonStatus::Cancelled], true)) {
             throw ValidationException::withMessages(['season_id' => 'No se pueden agregar torneos a esta temporada.']);
         }
         $slug = Str::slug($request->string('name')->toString());
@@ -203,7 +215,11 @@ class CompetitionSetupController extends Controller
     public function storeCompetition(StoreCompetitionRequest $request): RedirectResponse
     {
         $league = $this->league($request);
-        $tournament = Tournament::whereHas('season', fn ($query) => $query->where('league_id', $league->id))->findOrFail($request->integer('tournament_id'));
+        $tournament = Tournament::whereHas('season', fn ($query) => $query->where('league_id', $league->id))->with('season')->findOrFail($request->integer('tournament_id'));
+        if (in_array($tournament->status, [SeasonStatus::Finished, SeasonStatus::Archived, SeasonStatus::Cancelled], true)
+            || in_array($tournament->season->status, [SeasonStatus::Finished, SeasonStatus::Archived, SeasonStatus::Cancelled], true)) {
+            throw ValidationException::withMessages(['tournament_id' => 'No se pueden agregar competencias a un torneo o temporada concluidos.']);
+        }
         $division = Division::where('league_id', $league->id)->where('status', 'active')->findOrFail($request->integer('division_id'));
         $category = Category::where('league_id', $league->id)->where('status', 'active')->findOrFail($request->integer('category_id'));
         $regulation = Regulation::where('league_id', $league->id)->findOrFail($request->integer('regulation_id'));
