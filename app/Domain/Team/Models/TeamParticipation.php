@@ -16,7 +16,8 @@ class TeamParticipation extends Model
     protected $fillable = [
         'team_id', 'competition_id', 'season_id', 'division_id', 'registered_name', 'status',
         'requested_at', 'requested_by', 'reviewed_at', 'reviewed_by', 'review_reason',
-        'suspended_at', 'reactivated_at',
+        'suspended_at', 'reactivated_at', 'financial_status', 'suspension_source',
+        'financial_status_changed_at', 'financial_suspended_at', 'financial_excluded_at',
     ];
 
     protected function casts(): array
@@ -25,6 +26,8 @@ class TeamParticipation extends Model
             'status' => ParticipationStatus::class,
             'requested_at' => 'datetime', 'reviewed_at' => 'datetime',
             'suspended_at' => 'datetime', 'reactivated_at' => 'datetime',
+            'financial_status_changed_at' => 'datetime', 'financial_suspended_at' => 'datetime',
+            'financial_excluded_at' => 'datetime',
         ];
     }
 
@@ -38,4 +41,5 @@ class TeamParticipation extends Model
     public function homeMatches(): HasMany { return $this->hasMany(\App\Domain\Scheduling\Models\GameMatch::class, 'home_team_participation_id'); }
     public function awayMatches(): HasMany { return $this->hasMany(\App\Domain\Scheduling\Models\GameMatch::class, 'away_team_participation_id'); }
     public function lineups(): HasMany { return $this->hasMany(\App\Domain\Scheduling\Models\MatchLineup::class); }
+    public function financeCharges(): HasMany { return $this->hasMany(\App\Domain\Finance\Models\FinanceCharge::class); }
 }

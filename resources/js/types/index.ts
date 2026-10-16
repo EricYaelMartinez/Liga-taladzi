@@ -15,6 +15,7 @@ export interface AppPageProps extends InertiaPageProps {
     auth: { user: AuthUser | null };
     flash: { success?: string; error?: string };
     activeContext: ActiveContext | null;
+    notificationSummary: { unreadCount: number };
 }
 
 export type ActiveContext = {

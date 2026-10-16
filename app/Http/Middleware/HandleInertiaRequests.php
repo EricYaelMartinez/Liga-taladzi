@@ -2,6 +2,8 @@
 
 namespace App\Http\Middleware;
 
+use App\Domain\Notification\Enums\NoticeStatus;
+use App\Domain\Notification\Models\LeagueNoticeRecipient;
 use App\Support\LeagueContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -51,6 +53,19 @@ class HandleInertiaRequests extends Middleware
                     'slug' => $activeContext['role']->slug,
                 ],
             ] : null,
+            'notificationSummary' => fn () => [
+                'unreadCount' => $request->user() && $activeContext
+                    ? LeagueNoticeRecipient::query()
+                        ->where('user_id', $request->user()->id)
+                        ->whereNull('read_at')
+                        ->whereHas('notice', fn ($query) => $query
+                            ->where('league_id', $activeContext['league']->id)
+                            ->where('status', NoticeStatus::Published)
+                            ->where('published_at', '<=', now())
+                            ->where(fn ($expiry) => $expiry->whereNull('expires_at')->orWhere('expires_at', '>', now())))
+                        ->count()
+                    : 0,
+            ],
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),

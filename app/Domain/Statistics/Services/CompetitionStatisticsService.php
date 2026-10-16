@@ -11,13 +11,17 @@ use Illuminate\Support\Collection;
 
 class CompetitionStatisticsService
 {
-    public function calculate(Competition $competition): array
+    public function calculate(Competition $competition, bool $publishedOnly = false): array
     {
         $competition->loadMissing('regulation.tiebreakers', 'teamParticipations.team');
         $regulation = $competition->regulation;
         $reports = MatchReport::query()
             ->where('status', MatchReportStatus::Approved->value)
             ->whereHas('match', fn ($query) => $query->where('competition_id', $competition->id))
+            ->when($publishedOnly, fn ($query) => $query->whereHas(
+                'match.matchday',
+                fn ($matchday) => $matchday->whereIn('status', ['published', 'completed']),
+            ))
             ->with([
                 'match.matchday:id,name,number',
                 'match.homeParticipation.team:id,name,short_name',

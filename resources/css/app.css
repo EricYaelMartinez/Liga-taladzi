@@ -54,8 +54,45 @@
         @apply bg-league-50 text-league-700;
     }
 
+    .nav-menu {
+        @apply relative;
+    }
+
+    .nav-menu-trigger {
+        @apply flex cursor-pointer list-none items-center gap-1 whitespace-nowrap;
+    }
+
+    .nav-menu-trigger::-webkit-details-marker {
+        display: none;
+    }
+
+    .nav-menu-trigger::after {
+        content: '▾';
+        @apply text-[10px] text-slate-400 transition-transform;
+    }
+
+    .nav-menu[open] .nav-menu-trigger::after {
+        @apply rotate-180;
+    }
+
+    .nav-menu-panel {
+        @apply absolute left-0 top-[calc(100%+0.5rem)] z-50 min-w-56 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl;
+    }
+
+    .nav-menu-link {
+        @apply block whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100;
+    }
+
+    .nav-menu-link-active {
+        @apply bg-league-50 text-league-700;
+    }
+
     .mobile-nav-link {
         @apply block rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100;
+    }
+
+    .mobile-nav-heading {
+        @apply px-3 pb-1 text-xs font-bold uppercase tracking-wider text-slate-400;
     }
 
     .stat-card {

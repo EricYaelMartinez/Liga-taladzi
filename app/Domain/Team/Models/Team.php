@@ -34,4 +34,6 @@ class Team extends Model
     public function participations(): HasMany { return $this->hasMany(TeamParticipation::class); }
     public function changeRequests(): HasMany { return $this->hasMany(TeamChangeRequest::class); }
     public function playerRegistrations(): HasMany { return $this->hasMany(\App\Domain\Player\Models\PlayerRegistration::class); }
+    public function financeCharges(): HasMany { return $this->hasMany(\App\Domain\Finance\Models\FinanceCharge::class); }
+    public function financePayments(): HasMany { return $this->hasMany(\App\Domain\Finance\Models\FinancePayment::class); }
 }

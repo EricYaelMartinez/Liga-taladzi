@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\BackupController;
 use App\Http\Controllers\Admin\LeagueController;
 use App\Http\Controllers\AccessContextController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
@@ -9,13 +10,17 @@ use App\Http\Controllers\Auth\PasswordChangeController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EnvironmentController;
+use App\Http\Controllers\PublicPortalController;
 use App\Http\Controllers\League\AuditLogController;
 use App\Http\Controllers\League\CompetitionSetupController;
 use App\Http\Controllers\League\DisciplineController;
+use App\Http\Controllers\League\ExportController;
 use App\Http\Controllers\League\FieldController;
+use App\Http\Controllers\League\FinanceController;
 use App\Http\Controllers\League\LineupController;
 use App\Http\Controllers\League\MatchReportController;
 use App\Http\Controllers\League\MembershipController;
+use App\Http\Controllers\League\NoticeController;
 use App\Http\Controllers\League\OperationalSettingsController;
 use App\Http\Controllers\League\PlayerController;
 use App\Http\Controllers\League\PlayerCredentialController;
@@ -26,9 +31,9 @@ use App\Http\Controllers\League\SettingsController;
 use App\Http\Controllers\League\StatisticsController;
 use App\Http\Controllers\League\TeamController;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
-Route::get('/', fn () => Inertia::render('Welcome'));
+Route::get('/', [PublicPortalController::class, 'directory'])->name('public.leagues.index');
+Route::get('/ligas/{league:slug}', [PublicPortalController::class, 'show'])->name('public.leagues.show');
 Route::get('/status/services', EnvironmentController::class)->name('status.services');
 
 Route::middleware('guest')->group(function (): void {
@@ -51,6 +56,11 @@ Route::middleware(['auth', 'active'])->group(function (): void {
         Route::post('/seleccionar-acceso', [AccessContextController::class, 'store'])->name('access.store');
 
         Route::prefix('administracion')->name('admin.')->group(function (): void {
+            Route::controller(BackupController::class)->middleware('permission:backups.manage')->group(function (): void {
+                Route::get('/respaldos', 'index')->name('backups.index');
+                Route::post('/respaldos', 'store')->name('backups.store');
+                Route::get('/respaldos/{backup}/descargar', 'download')->name('backups.download');
+            });
             Route::get('/usuarios', [UserController::class, 'index'])->middleware('permission:users.view')->name('users.index');
             Route::get('/usuarios/crear', [UserController::class, 'create'])->middleware('permission:users.create')->name('users.create');
             Route::post('/usuarios', [UserController::class, 'store'])->middleware('permission:users.create')->name('users.store');
@@ -77,7 +87,22 @@ Route::middleware(['auth', 'active'])->group(function (): void {
             Route::post('/miembros/crear-usuario', [MembershipController::class, 'storeUser'])->middleware('permission:league.users.create')->name('members.users.store');
             Route::post('/miembros', [MembershipController::class, 'store'])->middleware('permission:league.members.create')->name('members.store');
             Route::put('/miembros/{membership}', [MembershipController::class, 'update'])->middleware('permission:league.members.update')->name('members.update');
-            Route::get('/bitacora', AuditLogController::class)->middleware('permission:audit.view')->name('audit.index');
+            Route::controller(AuditLogController::class)->middleware('permission:audit.view')->group(function (): void {
+                Route::get('/bitacora', 'index')->name('audit.index');
+                Route::get('/bitacora/exportar', 'export')->name('audit.export');
+            });
+            Route::controller(NoticeController::class)->middleware('permission:notifications.view')->group(function (): void {
+                Route::get('/avisos', 'index')->name('notices.index');
+                Route::post('/avisos/{recipient}/leer', 'markRead')->name('notices.read');
+                Route::post('/avisos/leer-todos', 'markAllRead')->name('notices.read-all');
+                Route::put('/avisos/preferencias', 'updatePreferences')->name('notices.preferences.update');
+                Route::middleware('permission:notifications.manage')->group(function (): void {
+                    Route::post('/avisos', 'store')->name('notices.store');
+                    Route::put('/avisos/{notice}', 'update')->name('notices.update');
+                    Route::post('/avisos/{notice}/publicar', 'publish')->name('notices.publish');
+                    Route::post('/avisos/{notice}/retirar', 'withdraw')->name('notices.withdraw');
+                });
+            });
             Route::controller(CompetitionSetupController::class)->middleware('permission:competitions.view')->group(function (): void {
                 Route::get('/competencias', 'index')->name('competitions.index');
                 Route::middleware('permission:competitions.manage')->group(function (): void {
@@ -157,6 +182,10 @@ Route::middleware(['auth', 'active'])->group(function (): void {
                 Route::get('/cedulas/{report}.pdf', 'download')->name('reports.download');
             });
             Route::get('/resultados', StatisticsController::class)->middleware('permission:statistics.view')->name('statistics.index');
+            Route::controller(ExportController::class)->middleware('permission:exports.view')->group(function (): void {
+                Route::get('/reportes', 'index')->name('exports.index');
+                Route::get('/reportes/exportar', 'export')->name('exports.download');
+            });
             Route::controller(DisciplineController::class)->middleware('permission:discipline.view')->group(function (): void {
                 Route::get('/disciplina', 'index')->name('discipline.index');
                 Route::post('/sanciones/{sanction}/apelaciones', 'appeal')->middleware('permission:discipline.appeal')->name('discipline.appeals.store');
@@ -166,6 +195,20 @@ Route::middleware(['auth', 'active'])->group(function (): void {
                     Route::post('/sanciones', 'store')->name('discipline.sanctions.store');
                     Route::post('/sanciones/sincronizar', 'sync')->name('discipline.sanctions.sync');
                     Route::post('/apelaciones/{appeal}/resolver', 'resolve')->name('discipline.appeals.resolve');
+                });
+            });
+            Route::controller(FinanceController::class)->middleware('permission:finance.view')->group(function (): void {
+                Route::get('/finanzas', 'index')->name('finance.index');
+                Route::get('/pagos/{payment}/recibo.pdf', 'receipt')->name('finance.receipts.download');
+                Route::middleware('permission:finance.manage')->group(function (): void {
+                    Route::post('/finanzas/conceptos', 'storeConcept')->name('finance.concepts.store');
+                    Route::put('/finanzas/conceptos/{concept}/estado', 'toggleConcept')->name('finance.concepts.toggle');
+                    Route::post('/finanzas/adeudos', 'storeCharge')->name('finance.charges.store');
+                    Route::post('/finanzas/adeudos/masivos', 'storeBulkCharges')->name('finance.charges.bulk-store');
+                    Route::put('/finanzas/adeudos/{charge}/cancelar', 'cancelCharge')->name('finance.charges.cancel');
+                    Route::post('/finanzas/pagos', 'storePayment')->name('finance.payments.store');
+                    Route::put('/finanzas/pagos/{payment}/anular', 'voidPayment')->name('finance.payments.void');
+                    Route::post('/finanzas/sincronizar', 'sync')->name('finance.sync');
                 });
             });
             Route::controller(PlayerController::class)->middleware('permission:players.view')->group(function (): void {

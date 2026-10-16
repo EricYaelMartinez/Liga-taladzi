@@ -20,7 +20,8 @@ const page = usePage<AppPageProps>();
         <section class="mt-8 grid gap-5 sm:grid-cols-3">
             <article class="stat-card"><span class="stat-label">Tareas pendientes</span><strong class="stat-value">{{ summary.pendingTasks }}</strong></article>
             <article class="stat-card"><span class="stat-label">Próximos partidos</span><strong class="stat-value">{{ summary.upcomingMatches }}</strong></article>
-            <article class="stat-card"><span class="stat-label">Notificaciones</span><strong class="stat-value">{{ summary.notifications }}</strong></article>
+            <Link v-if="page.props.activeContext && page.props.auth.user?.permissions.includes('notifications.view')" href="/liga/avisos" class="stat-card transition hover:border-league-600"><span class="stat-label">Notificaciones sin leer</span><strong class="stat-value">{{ summary.notifications }}</strong></Link>
+            <article v-else class="stat-card"><span class="stat-label">Notificaciones</span><strong class="stat-value">{{ summary.notifications }}</strong></article>
         </section>
         <section class="card mt-8 p-6">
             <h2 class="text-lg font-semibold">Acceso actual</h2>

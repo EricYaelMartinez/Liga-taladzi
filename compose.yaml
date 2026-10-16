@@ -52,6 +52,24 @@ services:
     networks:
       - liga_network
 
+  queue:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    working_dir: /var/www/html
+    command: php artisan queue:work --sleep=2 --tries=1 --timeout=3600
+    volumes:
+      - ./:/var/www/html
+      - vendor_data:/var/www/html/vendor
+    depends_on:
+      app:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - liga_network
+
   frontend:
     image: node:24-alpine
     working_dir: /var/www/html

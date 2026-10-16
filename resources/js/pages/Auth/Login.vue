@@ -39,6 +39,9 @@ const submit = () => form.post('/iniciar-sesion', { onFinish: () => form.reset('
                 </label>
                 <button class="btn-primary w-full" type="submit" :disabled="form.processing">{{ form.processing ? 'Ingresando…' : 'Ingresar' }}</button>
             </form>
+            <div class="mt-6 border-t border-slate-200 pt-5 text-center">
+                <Link href="/" class="text-sm font-semibold text-league-700 hover:underline">← Consultar el portal público</Link>
+            </div>
         </div>
     </GuestLayout>
 </template>

@@ -7,6 +7,9 @@ use App\Http\Middleware\RequirePermission;
 use App\Http\Middleware\EnsureLeagueContext;
 use App\Console\Commands\CreateInitialAdmin;
 use App\Console\Commands\SyncMatchLifecycle;
+use App\Console\Commands\SyncFinanceLifecycle;
+use App\Console\Commands\CreateSystemBackup;
+use App\Console\Commands\RestoreSystemBackup;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -26,7 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'league.context' => EnsureLeagueContext::class,
         ]);
     })
-    ->withCommands([CreateInitialAdmin::class, SyncMatchLifecycle::class])
+    ->withCommands([CreateInitialAdmin::class, SyncMatchLifecycle::class, SyncFinanceLifecycle::class, CreateSystemBackup::class, RestoreSystemBackup::class])
     ->withExceptions(function (Exceptions $exceptions): void {
         // Las excepciones específicas se configurarán por módulo.
     })->create();

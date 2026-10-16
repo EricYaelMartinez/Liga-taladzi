@@ -309,6 +309,46 @@ de 9 × 6 cm en un PDF independiente por equipo. La identidad de cada credencial
 usa los colores y cuatro logotipos configurables de la liga. Consulte
 `MODULO_6_VERIFICACION.md` para la instalación y las pruebas funcionales.
 
+## Módulo 15: pagos, fianzas y recibos
+
+La liga administra conceptos, adeudos y pagos presenciales en efectivo. Los
+pagos pueden aplicarse parcial o simultáneamente a varios adeudos y generan un
+recibo PDF con folio consecutivo. La prórroga, suspensión, reactivación y
+exclusión por falta de pago utilizan los parámetros configurados por liga. Los
+recibos pueden anularse, pero nunca se eliminan. Consulta
+`MODULO_15_VERIFICACION.md`.
+
+## Módulo 16: avisos y notificaciones
+
+La liga puede redactar avisos, seleccionar como audiencia a toda la liga, roles
+o equipos, y publicarlos en una bandeja interna. Cada publicación conserva sus
+destinatarios y lecturas. Los usuarios configuran categorías normales, mientras
+que los avisos urgentes son obligatorios. Consulta `MODULO_16_VERIFICACION.md`.
+
+## Módulo 17: portal público
+
+La página principal permite consultar las ligas activas sin iniciar sesión. Cada
+liga dispone de filtros por temporada, división y competencia, calendario por
+jornada, resultados aprobados, posiciones, goleadores y disciplina deportiva
+limitada. Los datos de contacto, documentos y expedientes privados no se
+publican. Consulta `MODULO_17_VERIFICACION.md`.
+
+## Módulo 18: reportes y exportaciones
+
+Los administradores generan reportes oficiales en PDF y libros `.xlsx` de
+equipos, plantillas, calendario, resultados, posiciones, goleadores, disciplina,
+árbitros, cédulas, movimientos y estadísticas de temporada. Los filtros y el
+aislamiento por liga se comprueban en el servidor y cada descarga queda en la
+bitácora. Consulta `MODULO_18_VERIFICACION.md`.
+
+## Módulo 19: auditoría y respaldos
+
+La bitácora de cada liga permite filtrar y exportar movimientos sin exponer
+datos de otras ligas. El administrador del sistema dispone de respaldos completos
+de PostgreSQL y archivos, programados semanalmente con retención configurable,
+descarga privada, suma SHA-256 y restauración protegida desde consola. Consulta
+`MODULO_19_VERIFICACION.md`.
+
 ## Seguridad
 
 - `.env` no se incluye en Git.

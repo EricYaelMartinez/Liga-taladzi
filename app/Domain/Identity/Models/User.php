@@ -70,6 +70,16 @@ class User extends Authenticatable
         return $this->hasMany(\App\Domain\Referee\Models\Referee::class);
     }
 
+    public function noticeRecipients(): HasMany
+    {
+        return $this->hasMany(\App\Domain\Notification\Models\LeagueNoticeRecipient::class);
+    }
+
+    public function notificationPreferences(): HasMany
+    {
+        return $this->hasMany(\App\Domain\Notification\Models\NotificationPreference::class);
+    }
+
     public function hasRole(string $role): bool
     {
         return $this->roles()->where('slug', $role)->exists();

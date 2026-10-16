@@ -274,6 +274,11 @@ class TeamController extends Controller
         ];
         $target = $transitions[$current][$action] ?? null;
         if (! $target) throw ValidationException::withMessages(['action' => 'Esta transición no está permitida.']);
+        if ($target === 'active' && in_array($participation->financial_status, ['suspended', 'excluded'], true)) {
+            throw ValidationException::withMessages(['action' => $participation->financial_status === 'excluded'
+                ? 'La participación fue excluida definitivamente por falta de pago y no puede reincorporarse.'
+                : 'La participación conserva adeudos vencidos. Registra el pago antes de reactivarla.']);
+        }
 
         DB::transaction(function () use ($request, $participation, $league, $current, $target): void {
             $participation->update([
@@ -282,6 +287,7 @@ class TeamController extends Controller
                 'review_reason' => $request->string('reason')->toString(),
                 'suspended_at' => $target === 'suspended' ? now() : $participation->suspended_at,
                 'reactivated_at' => $target === 'active' && $current !== 'pending' ? now() : $participation->reactivated_at,
+                'suspension_source' => $target === 'suspended' ? 'administrative' : ($target === 'active' ? null : $participation->suspension_source),
             ]);
             $teamStatus = match ($target) {
                 'active' => TeamStatus::Active,

@@ -68,10 +68,16 @@ class IdentitySeeder extends Seeder
             ['name' => 'Confirmar cédulas de su equipo', 'slug' => 'reports.confirm', 'module' => 'match-report'],
             ['name' => 'Revisar y aprobar cédulas', 'slug' => 'reports.review', 'module' => 'match-report'],
             ['name' => 'Ver resultados y estadísticas', 'slug' => 'statistics.view', 'module' => 'statistics'],
+            ['name' => 'Generar reportes y exportaciones', 'slug' => 'exports.view', 'module' => 'reporting'],
             ['name' => 'Ver sanciones y disciplina', 'slug' => 'discipline.view', 'module' => 'discipline'],
             ['name' => 'Administrar sanciones y apelaciones', 'slug' => 'discipline.manage', 'module' => 'discipline'],
             ['name' => 'Apelar sanciones de su equipo', 'slug' => 'discipline.appeal', 'module' => 'discipline'],
+            ['name' => 'Ver estado de cuenta y recibos', 'slug' => 'finance.view', 'module' => 'finance'],
+            ['name' => 'Administrar cobros, pagos y recibos', 'slug' => 'finance.manage', 'module' => 'finance'],
+            ['name' => 'Ver avisos y notificaciones', 'slug' => 'notifications.view', 'module' => 'notification'],
+            ['name' => 'Administrar avisos y notificaciones', 'slug' => 'notifications.manage', 'module' => 'notification'],
             ['name' => 'Ver bitácora', 'slug' => 'audit.view', 'module' => 'audit'],
+            ['name' => 'Administrar respaldos del sistema', 'slug' => 'backups.manage', 'module' => 'backup'],
         ];
 
         $permissionIds = collect($permissions)->map(function (array $permission): int {
@@ -115,17 +121,22 @@ class IdentitySeeder extends Seeder
             'reports.confirm',
             'reports.review',
             'statistics.view',
+            'exports.view',
             'discipline.view',
             'discipline.manage',
+            'finance.view',
+            'finance.manage',
+            'notifications.view',
+            'notifications.manage',
             'audit.view',
         ])->pluck('id');
         Role::where('slug', 'league_admin')->firstOrFail()->permissions()->sync($leagueAdminPermissions);
 
         $dashboardPermission = Permission::where('slug', 'dashboard.view')->firstOrFail()->id;
-        $refereePermissions = Permission::whereIn('slug', ['dashboard.view', 'referees.view', 'schedule.view', 'lineups.view', 'reports.view', 'reports.manage', 'statistics.view'])->pluck('id');
+        $refereePermissions = Permission::whereIn('slug', ['dashboard.view', 'referees.view', 'schedule.view', 'lineups.view', 'reports.view', 'reports.manage', 'statistics.view', 'notifications.view'])->pluck('id');
         Role::where('slug', 'referee')->firstOrFail()->permissions()->sync($refereePermissions);
         $playerPermissions = Permission::whereIn('slug', [
-            'dashboard.view', 'players.view', 'players.self-update', 'schedule.view', 'statistics.view', 'discipline.view',
+            'dashboard.view', 'players.view', 'players.self-update', 'schedule.view', 'statistics.view', 'discipline.view', 'notifications.view',
         ])->pluck('id');
         Role::where('slug', 'player')->firstOrFail()->permissions()->sync($playerPermissions);
         $representativePermissions = Permission::whereIn('slug', [
@@ -134,6 +145,8 @@ class IdentitySeeder extends Seeder
             'reports.view', 'reports.confirm',
             'statistics.view',
             'discipline.view', 'discipline.appeal',
+            'finance.view',
+            'notifications.view',
         ])->pluck('id');
         Role::where('slug', 'team_representative')->firstOrFail()->permissions()->sync($representativePermissions);
     }
