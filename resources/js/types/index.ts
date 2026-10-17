@@ -12,6 +12,12 @@ export type AuthUser = {
 
 export interface AppPageProps extends InertiaPageProps {
     appName: string;
+    brand: {
+        name: string;
+        tagline: string;
+        logoUrl: string;
+        colors: { navy: string; green: string; gold: string };
+    };
     auth: { user: AuthUser | null };
     flash: { success?: string; error?: string };
     activeContext: ActiveContext | null;

@@ -1,13 +1,13 @@
 @import "tailwindcss";
 
 @theme {
-    --color-league-50: #eef8f4;
-    --color-league-100: #d7eee5;
-    --color-league-600: #176b56;
-    --color-league-700: #125444;
-    --color-league-900: #0c332b;
-    --color-gold-400: #e8bd4a;
-    --color-gold-500: #d9a928;
+    --color-league-50: #eff8f0;
+    --color-league-100: #d8ecd9;
+    --color-league-600: #2e7d32;
+    --color-league-700: #256b2a;
+    --color-league-900: #1b2a4a;
+    --color-gold-400: #d4b56b;
+    --color-gold-500: #c5a059;
 }
 
 @layer base {

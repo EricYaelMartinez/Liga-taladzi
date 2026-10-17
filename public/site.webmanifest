@@ -1,0 +1,17 @@
+{
+  "name": "ProLiga",
+  "short_name": "ProLiga",
+  "description": "Administra tu liga en un solo espacio",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F8FAFC",
+  "theme_color": "#1B2A4A",
+  "icons": [
+    {
+      "src": "/images/brand/proliga-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

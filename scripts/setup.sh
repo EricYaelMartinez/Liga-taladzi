@@ -5,6 +5,12 @@ command -v docker >/dev/null 2>&1 || { echo "Docker no está instalado."; exit 1
 
 [ -f .env ] || cp .env.example .env
 
+if grep -q '^APP_NAME=' .env; then
+    sed -i 's/^APP_NAME=.*/APP_NAME="ProLiga"/' .env
+else
+    printf '\nAPP_NAME="ProLiga"\n' >> .env
+fi
+
 docker compose build app
 if [ ! -f composer.lock ]; then
     docker compose run --rm --no-deps --entrypoint composer app install --no-interaction --prefer-dist --no-progress

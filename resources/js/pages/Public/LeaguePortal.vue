@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3';
+import type { AppPageProps } from '../../types';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import type { CSSProperties } from 'vue';
 
@@ -14,6 +15,8 @@ type Statistics = { standings: Standing[]; results: Result[]; scorers: Scorer[];
 type PublicSanction = { id: number; subject_type: string; subject_name: string; team: string | null; kind: string; matches_remaining: number | null; issued_at: string | null };
 
 const props = defineProps<{ league: League; competitions: Competition[]; selectedCompetitionId: number | null; schedule: PublicMatch[]; statistics: Statistics | null; activeSanctions: PublicSanction[] }>();
+const page = usePage<AppPageProps>();
+const platform = computed(() => page.props.brand);
 const activeTab = ref<'schedule' | 'results' | 'standings' | 'scorers' | 'discipline'>('schedule');
 const selectedCompetitionId = ref<number | null>(props.selectedCompetitionId);
 const selectedCompetition = computed(() => props.competitions.find((item) => item.id === selectedCompetitionId.value) ?? null);
@@ -64,7 +67,7 @@ function loadCompetition(): void {
     <div class="min-h-screen bg-slate-100" :style="brandStyle">
         <header class="text-white" style="background: linear-gradient(135deg, var(--color-league-900), var(--color-league-600))">
             <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
-                <Link href="/" class="text-sm font-semibold text-white/80 hover:text-white">← Todas las ligas</Link>
+                <Link href="/" class="flex items-center gap-2 text-sm font-semibold text-white/80 hover:text-white"><img :src="platform.logoUrl" :alt="`Logotipo de ${platform.name}`" class="h-10 w-10 object-contain"><span>{{ platform.name }} · Todas las ligas</span></Link>
                 <Link href="/iniciar-sesion" class="rounded-xl border border-white/30 px-4 py-2 text-sm font-semibold hover:bg-white/10">Acceso privado</Link>
             </div>
             <div class="mx-auto flex max-w-7xl flex-col gap-5 px-5 pb-9 pt-4 sm:flex-row sm:items-center sm:px-8 sm:pb-12">
@@ -104,6 +107,6 @@ function loadCompetition(): void {
                 <section v-if="activeTab === 'discipline'" class="mt-4 space-y-5"><article class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div class="border-b border-slate-200 p-5"><h3 class="text-xl font-semibold">Tarjetas registradas</h3></div><div v-if="!statistics.discipline.length" class="p-10 text-center text-slate-500">No hay tarjetas en cédulas aprobadas.</div><div v-else class="overflow-x-auto"><table class="min-w-full text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-5 py-3 text-left">Jugador</th><th class="px-5 py-3 text-left">Equipo</th><th class="px-4 py-3">Amarillas</th><th class="px-4 py-3">2.ª amarilla</th><th class="px-4 py-3">Rojas</th></tr></thead><tbody class="divide-y divide-slate-200"><tr v-for="player in statistics.discipline" :key="player.registration_id"><td class="px-5 py-4 font-semibold">{{ player.player }}</td><td class="px-5 py-4">{{ player.team }}</td><td class="px-4 py-4 text-center">{{ player.yellow_cards }}</td><td class="px-4 py-4 text-center">{{ player.second_yellows }}</td><td class="px-4 py-4 text-center font-bold text-red-700">{{ player.red_cards }}</td></tr></tbody></table></div></article><article class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div class="border-b border-slate-200 p-5"><h3 class="text-xl font-semibold">Sanciones deportivas vigentes</h3><p class="mt-1 text-sm text-slate-500">Solo se muestran datos deportivos necesarios; los expedientes y motivos son privados.</p></div><div v-if="!activeSanctions.length" class="p-10 text-center text-slate-500">No hay suspensiones o descalificaciones vigentes.</div><div v-else class="divide-y divide-slate-200"><div v-for="sanction in activeSanctions" :key="sanction.id" class="flex flex-col justify-between gap-2 p-5 sm:flex-row sm:items-center"><div><strong>{{ sanction.subject_name }}</strong><p class="text-sm text-slate-500">{{ sanction.team ?? (sanction.subject_type === 'team' ? 'Equipo' : 'Sin equipo') }}</p></div><span class="w-fit rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-800">{{ sanction.kind === 'suspension' ? `${sanction.matches_remaining} partido(s) pendiente(s)` : 'Descalificación vigente' }}</span></div></div></article></section>
             </template>
         </main>
-        <footer class="border-t border-slate-200 bg-white px-5 py-6 text-center text-sm text-slate-500">{{ league.name }} · Portal público oficial</footer>
+        <footer class="border-t border-slate-200 bg-white px-5 py-6 text-center text-sm text-slate-500">{{ league.name }} · Portal público oficial en {{ platform.name }}</footer>
     </div>
 </template>

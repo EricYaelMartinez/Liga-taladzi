@@ -5,11 +5,21 @@ namespace Tests\Feature\Auth;
 use App\Domain\Identity\Models\AuthenticationEvent;
 use App\Domain\Identity\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class AuthenticationTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_login_page_is_available_with_password_recovery(): void
+    {
+        $this->get('/iniciar-sesion')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Auth/Login')
+                ->where('canResetPassword', true));
+    }
 
     public function test_active_user_can_log_in_and_event_is_recorded(): void
     {

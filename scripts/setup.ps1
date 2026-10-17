@@ -18,6 +18,15 @@ if (-not (Test-Path ".env")) {
 
 $envPath = (Resolve-Path ".env").Path
 $envText = [System.IO.File]::ReadAllText($envPath)
+if ($envText -match "(?m)^APP_NAME=") {
+    $envText = [System.Text.RegularExpressions.Regex]::Replace(
+        $envText,
+        "(?m)^APP_NAME=.*$",
+        'APP_NAME="ProLiga"'
+    )
+} else {
+    $envText = $envText.TrimEnd() + [Environment]::NewLine + 'APP_NAME="ProLiga"' + [Environment]::NewLine
+}
 if ($envText -match "(?m)^APP_TIMEZONE=") {
     $envText = [System.Text.RegularExpressions.Regex]::Replace(
         $envText,

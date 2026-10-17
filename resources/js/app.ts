@@ -6,7 +6,7 @@ import type { DefineComponent } from 'vue';
 const pages = import.meta.glob<{ default: DefineComponent }>('./pages/**/*.vue', { eager: true });
 
 createInertiaApp({
-    title: (title) => title ? `${title} - Liga Taladzi` : 'Liga Taladzi',
+    title: (title) => title ? `${title} - ProLiga` : 'ProLiga',
     resolve: (name) => {
         return pages[`./pages/${name}.vue`];
     },
@@ -15,5 +15,5 @@ createInertiaApp({
             .use(plugin)
             .mount(el);
     },
-    progress: { color: '#176b56' },
+    progress: { color: '#2E7D32' },
 });

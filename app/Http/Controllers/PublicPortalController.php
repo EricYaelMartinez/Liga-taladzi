@@ -22,17 +22,58 @@ class PublicPortalController extends Controller
         $leagues = League::query()
             ->where('status', 'active')
             ->orderBy('name')
-            ->get(['id', 'name', 'slug', 'logo_path', 'primary_color', 'secondary_color'])
-            ->map(fn (League $league): array => [
+            ->get(['id', 'name', 'slug', 'logo_path', 'primary_color', 'secondary_color']);
+
+        $competitionsByLeague = Competition::query()
+            ->whereIn('status', ['active', 'finished'])
+            ->whereHas('tournament', fn ($query) => $query
+                ->whereIn('status', ['active', 'finished'])
+                ->whereHas('season', fn ($season) => $season
+                    ->whereIn('league_id', $leagues->pluck('id'))
+                    ->whereIn('status', ['active', 'finished'])))
+            ->with([
+                'tournament:id,season_id,name,status',
+                'tournament.season:id,league_id,name,status,starts_on,ends_on',
+                'division:id,name',
+                'category:id,name,gender',
+            ])
+            ->get()
+            ->sortByDesc(fn (Competition $competition): string => sprintf(
+                '%d-%s-%010d',
+                $competition->status->value === 'active' ? 1 : 0,
+                $competition->tournament->season->starts_on?->format('Y-m-d') ?? '',
+                $competition->id,
+            ))
+            ->groupBy(fn (Competition $competition): int => $competition->tournament->season->league_id);
+
+        $directory = $leagues->map(function (League $league) use ($competitionsByLeague): array {
+            /** @var Collection<int, Competition> $competitions */
+            $competitions = $competitionsByLeague->get($league->id, collect());
+            $featured = $competitions->first();
+
+            return [
                 'id' => $league->id,
                 'name' => $league->name,
                 'slug' => $league->slug,
                 'logo_url' => $league->logo_path ? Storage::disk('public')->url($league->logo_path) : null,
                 'primary_color' => $league->primary_color,
                 'secondary_color' => $league->secondary_color,
-            ]);
+                'genders' => $competitions->pluck('category.gender')->filter()->unique()->values()->all(),
+                'featured_competition' => $featured ? [
+                    'name' => $featured->name,
+                    'status' => $featured->status->value,
+                    'division' => $featured->division->name,
+                    'category' => $featured->category->name,
+                    'gender' => $featured->category->gender,
+                    'format' => $featured->format->value,
+                    'season' => $featured->tournament->season->name,
+                    'starts_on' => $featured->tournament->season->starts_on?->format('Y-m-d'),
+                    'ends_on' => $featured->tournament->season->ends_on?->format('Y-m-d'),
+                ] : null,
+            ];
+        });
 
-        return Inertia::render('Public/LeagueDirectory', ['leagues' => $leagues]);
+        return Inertia::render('Public/LeagueDirectory', ['leagues' => $directory]);
     }
 
     public function show(Request $request, League $league): Response

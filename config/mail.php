@@ -23,7 +23,7 @@ return [
         ],
     ],
     'from' => [
-        'address' => env('MAIL_FROM_ADDRESS', 'noreply@liga.local'),
-        'name' => env('MAIL_FROM_NAME', 'Liga Taladzi'),
+        'address' => env('MAIL_FROM_ADDRESS', 'noreply@proliga.local'),
+        'name' => env('MAIL_FROM_NAME', 'ProLiga'),
     ],
 ];

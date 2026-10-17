@@ -1,4 +1,6 @@
-# Sistema de la Liga Taladzi
+# ProLiga
+
+**Administra tu liga en un solo espacio.**
 
 Proyecto base del sistema web multiliga para administrar ligas locales de fútbol.
 
@@ -348,6 +350,29 @@ datos de otras ligas. El administrador del sistema dispone de respaldos completo
 de PostgreSQL y archivos, programados semanalmente con retención configurable,
 descarga privada, suma SHA-256 y restauración protegida desde consola. Consulta
 `MODULO_19_VERIFICACION.md`.
+
+## Módulo 19.1: identidad visual de ProLiga
+
+La plataforma utiliza de forma global el nombre **ProLiga**, el lema
+**“Administra tu liga en un solo espacio”**, su logotipo y su favicon. La paleta
+institucional es azul marino `#1B2A4A`, verde `#2E7D32` y dorado `#C5A059`.
+Esta identidad corresponde al sistema y convive con los logotipos y colores
+configurables de cada liga. Consulta `MODULO_19_1_IDENTIDAD_VISUAL.md`.
+
+## Módulo 19.2: acceso visual de ProLiga
+
+El inicio de sesión utiliza una composición deportiva responsiva, con imagen
+institucional, beneficios de la plataforma, formulario accesible y opción para
+mostrar la contraseña. Los accesos con Google y Apple se presentan deshabilitados
+como funciones futuras y no alteran la autenticación actual. Consulta
+`MODULO_19_2_ACCESO_VISUAL.md`.
+
+## Módulo 19.3: directorio público visual
+
+El directorio público presenta las ligas activas sobre una portada deportiva,
+muestra el logotipo configurado por cada liga y resume su competencia pública
+vigente. Incluye búsqueda por nombre, división o categoría y filtros por género.
+Consulta `MODULO_19_3_PORTAL_PUBLICO_VISUAL.md`.
 
 ## Seguridad
 

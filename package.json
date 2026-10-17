@@ -27,6 +27,9 @@
     "validate:module17": "node scripts/validate-module17.mjs",
     "validate:module18": "node scripts/validate-module18.mjs",
     "validate:module19": "node scripts/validate-module19.mjs",
+    "validate:branding": "node scripts/validate-branding.mjs",
+    "validate:login-design": "node scripts/validate-login-design.mjs",
+    "validate:public-design": "node scripts/validate-public-design.mjs",
     "validate:lifecycle": "node scripts/validate-lifecycle-hardening.mjs"
   },
   "dependencies": {

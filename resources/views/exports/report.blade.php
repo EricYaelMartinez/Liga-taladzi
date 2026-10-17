@@ -42,6 +42,6 @@
     @else
         <div class="empty">No existen registros para los filtros seleccionados.</div>
     @endif
-    <div class="footer">Documento generado por el Sistema de la Liga Taladzi <span class="right">{{ $folio }}</span></div>
+    <div class="footer">Documento generado por {{ config('branding.name') }} <span class="right">{{ $folio }}</span></div>
 </body>
 </html>

@@ -7,6 +7,7 @@ import type { CSSProperties } from 'vue';
 const page = usePage<AppPageProps>();
 const mobileOpen = ref(false);
 const user = computed(() => page.props.auth.user);
+const brand = computed(() => page.props.brand);
 const canManageUsers = computed(() => user.value?.permissions.includes('users.view') ?? false);
 const canManageLeagues = computed(() => user.value?.permissions.includes('leagues.view') ?? false);
 const canManageBackups = computed(() => user.value?.permissions.includes('backups.manage') ?? false);
@@ -101,9 +102,9 @@ const brandStyle = computed<CSSProperties>(() => {
         <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
             <div class="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-4 px-4 py-2 sm:px-6 lg:px-8">
                 <div class="flex min-w-0 items-center gap-5">
-                    <Link href="/panel" class="flex min-w-0 shrink-0 items-center gap-2 font-semibold text-league-900">
-                        <img v-if="context?.league.logoUrl" :src="context.league.logoUrl" alt="" class="h-9 w-9 shrink-0 rounded-lg object-contain">
-                        <span class="max-w-40 text-sm leading-tight">{{ context?.league.name ?? 'Liga Taladzi' }}</span>
+                    <Link href="/panel" class="flex min-w-0 shrink-0 items-center gap-2 text-league-900">
+                        <img :src="brand.logoUrl" :alt="`Logotipo de ${brand.name}`" class="h-10 w-10 shrink-0 object-contain">
+                        <span class="min-w-0 max-w-44 leading-tight"><strong class="block text-sm">{{ brand.name }}</strong><small v-if="context" class="block truncate text-[11px] font-medium text-slate-500">{{ context.league.name }}</small></span>
                     </Link>
                     <nav class="hidden items-center gap-0.5 xl:flex" aria-label="Navegación principal">
                         <Link href="/panel" class="nav-link" :class="{ 'nav-link-active': page.url === '/panel' }">Panel</Link>

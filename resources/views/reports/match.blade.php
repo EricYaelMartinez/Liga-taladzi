@@ -72,6 +72,6 @@
     @forelse($report->confirmations as $confirmation)<tr><td>{{ $confirmation->teamParticipation->registered_name }}</td><td>{{ $confirmation->representative?->name ?? '—' }}</td><td>{{ $confirmation->decision }}</td><td>{{ $confirmation->decided_at?->timezone(config('app.timezone'))->format('d/m/Y H:i') ?? 'Pendiente' }}</td><td>{{ $confirmation->notes ?: '—' }}</td></tr>@empty<tr><td colspan="5">Pendiente de envío.</td></tr>@endforelse
     </tbody></table>
     @if($report->review_notes)<h2>Revisión administrativa</h2><div class="box">{{ $report->review_notes }}</div>@endif
-    <p class="muted">Generada por el Sistema de la Liga Taladzi. El historial de usuario, fecha y hora se conserva en la bitácora.</p>
+    <p class="muted">Generada por {{ config('branding.name') }}. El historial de usuario, fecha y hora se conserva en la bitácora.</p>
 </body>
 </html>

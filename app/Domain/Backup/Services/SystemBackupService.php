@@ -26,7 +26,7 @@ class SystemBackupService
             $databasePath = $temporary.'/database.dump';
             $this->databaseDump($databasePath);
 
-            $filename = 'liga-taladzi-'.now()->format('Ymd-His').'-'.$run->id.'.zip';
+            $filename = 'proliga-'.now()->format('Ymd-His').'-'.$run->id.'.zip';
             $absolutePath = $directory.'/'.$filename;
             $this->buildArchive($absolutePath, $databasePath, $run);
 

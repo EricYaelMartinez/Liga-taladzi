@@ -28,13 +28,19 @@ class PublicPortalTest extends TestCase
     public function test_guests_can_open_the_directory_and_an_active_league_portal(): void
     {
         $scenario = $this->scenario();
+        $scenario['league']->update(['logo_path' => 'league-logos/liga-publica.png']);
 
         $this->get('/')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Public/LeagueDirectory')
                 ->has('leagues', 1)
-                ->where('leagues.0.name', 'Liga pública'));
+                ->where('leagues.0.name', 'Liga pública')
+                ->where('leagues.0.logo_url', rtrim((string) config('filesystems.disks.public.url'), '/').'/league-logos/liga-publica.png')
+                ->where('leagues.0.genders.0', 'mixed')
+                ->where('leagues.0.featured_competition.name', 'Primera Libre')
+                ->where('leagues.0.featured_competition.division', 'Primera')
+                ->where('leagues.0.featured_competition.category', 'Libre'));
 
         $this->get("/ligas/{$scenario['league']->slug}")
             ->assertOk()

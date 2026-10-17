@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
+import type { AppPageProps } from '../types';
+import { Link, usePage } from '@inertiajs/vue3';
 import { computed, onMounted, ref } from 'vue';
 
 type Service = { status: 'ok' | 'error'; driver?: string; name?: string };
@@ -11,6 +12,8 @@ type HealthResponse = {
 
 const health = ref<HealthResponse | null>(null);
 const loading = ref(true);
+const page = usePage<AppPageProps>();
+const brand = computed(() => page.props.brand);
 
 const services = computed(() => [
     { name: 'Laravel', value: health.value?.application },
@@ -33,10 +36,9 @@ onMounted(async () => {
         <section class="mx-auto max-w-5xl overflow-hidden rounded-3xl bg-white shadow-xl shadow-slate-200/70">
             <header class="bg-league-900 px-6 py-10 text-white sm:px-10">
                 <div class="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-                    <div>
-                        <p class="mb-2 text-sm font-semibold uppercase tracking-[0.2em] text-gold-400">Módulo 3</p>
-                        <h1 class="text-3xl font-semibold sm:text-4xl">Sistema de la Liga Taladzi</h1>
-                        <p class="mt-3 max-w-2xl text-league-100">Plataforma multiliga con parámetros operativos configurables e historial de cambios.</p>
+                    <div class="flex items-center gap-5">
+                        <img :src="brand.logoUrl" :alt="`Logotipo de ${brand.name}`" class="h-24 w-24 shrink-0 object-contain sm:h-28 sm:w-28">
+                        <div><p class="mb-2 text-sm font-semibold uppercase tracking-[0.2em] text-gold-400">Plataforma multiliga</p><h1 class="text-3xl font-semibold sm:text-4xl">{{ brand.name }}</h1><p class="mt-3 max-w-2xl text-league-100">{{ brand.tagline }}</p></div>
                     </div>
                     <Link href="/iniciar-sesion" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-white px-5 py-3 text-sm font-semibold text-league-900 transition hover:bg-league-50">Iniciar sesión</Link>
                 </div>
