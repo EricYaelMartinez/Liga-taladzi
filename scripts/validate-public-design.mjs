@@ -2,8 +2,10 @@ import { existsSync, readFileSync } from 'node:fs';
 
 const required = [
     'public/images/auth/proliga-stadium.jpg',
+    'public/images/public/league-stadium.jpg',
     'app/Http/Controllers/PublicPortalController.php',
     'resources/js/pages/Public/LeagueDirectory.vue',
+    'resources/js/pages/Public/LeaguePortal.vue',
     'tests/Feature/PublicPortalTest.php',
     'MODULO_19_3_PORTAL_PUBLICO_VISUAL.md',
 ];
@@ -35,4 +37,20 @@ for (const value of [
     if (!page.includes(value)) throw new Error(`Falta un elemento del directorio público: ${value}`);
 }
 
-console.log('Validación estructural del directorio público visual completada.');
+const portal = readFileSync('resources/js/pages/Public/LeaguePortal.vue', 'utf8');
+for (const value of [
+    '/images/public/league-stadium.jpg',
+    'Portal público oficial',
+    'Detalles del partido',
+    'match.home_crest_url',
+    'match.away_crest_url',
+    'selectedMatch',
+]) {
+    if (!portal.includes(value)) throw new Error(`Falta un elemento del portal público de liga: ${value}`);
+}
+
+for (const value of ["'home_crest_url'", "'away_crest_url'"]) {
+    if (!controller.includes(value)) throw new Error(`Falta un escudo público del servidor: ${value}`);
+}
+
+console.log('Validación estructural del directorio y portal público visual completada.');

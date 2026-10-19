@@ -50,6 +50,7 @@ class PublicPortalTest extends TestCase
                 ->where('selectedCompetitionId', $scenario['competition']->id)
                 ->has('schedule', 1)
                 ->where('schedule.0.home_team', 'Águilas')
+                ->where('schedule.0.home_crest_url', rtrim((string) config('filesystems.disks.public.url'), '/').'/team-crests/aguilas.png')
                 ->where('schedule.0.field.venue', 'Unidad deportiva')
                 ->where('statistics.summary.official_matches', 1)
                 ->where('statistics.results.0.home_score', 2)
@@ -243,6 +244,7 @@ class PublicPortalTest extends TestCase
             'slug' => str($name.'-'.uniqid())->slug(),
             'email' => $email,
             'phone' => $phone,
+            'crest_path' => 'team-crests/'.str($name)->ascii()->slug().'.png',
             'photo_path' => 'teams/private-photo.jpg',
             'status' => 'active',
         ]);

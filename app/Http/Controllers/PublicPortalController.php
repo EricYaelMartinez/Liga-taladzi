@@ -172,8 +172,10 @@ class PublicPortalController extends Controller
             ->whereHas('matchday', fn ($query) => $query->whereIn('status', ['published', 'completed']))
             ->with([
                 'matchday:id,name,number,status,starts_on,ends_on',
-                'homeParticipation:id,registered_name',
-                'awayParticipation:id,registered_name',
+                'homeParticipation:id,team_id,registered_name',
+                'homeParticipation.team:id,crest_path',
+                'awayParticipation:id,team_id,registered_name',
+                'awayParticipation.team:id,crest_path',
                 'field:id,venue_id,name',
                 'field.venue:id,name,address',
                 'report' => fn ($query) => $query->where('status', 'approved')->select(['id', 'match_id', 'home_score', 'away_score']),
@@ -189,7 +191,13 @@ class PublicPortalController extends Controller
                     'number' => $match->matchday->number,
                 ],
                 'home_team' => $match->homeParticipation->registered_name,
+                'home_crest_url' => $match->homeParticipation->team?->crest_path
+                    ? Storage::disk('public')->url($match->homeParticipation->team->crest_path)
+                    : null,
                 'away_team' => $match->awayParticipation->registered_name,
+                'away_crest_url' => $match->awayParticipation->team?->crest_path
+                    ? Storage::disk('public')->url($match->awayParticipation->team->crest_path)
+                    : null,
                 'scheduled_at' => $match->scheduled_at?->toIso8601String(),
                 'status' => $match->status->value,
                 'field' => $match->field ? [

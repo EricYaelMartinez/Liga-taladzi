@@ -104,7 +104,7 @@ class CompetitionSetupController extends Controller
             $locked = Season::whereKey($season->id)->lockForUpdate()->firstOrFail();
             $locked->update(['status' => $target]);
             $counts = ['tournaments' => 0, 'competitions' => 0];
-            if (in_array($target, [SeasonStatus::Finished, SeasonStatus::Archived, SeasonStatus::Cancelled], true)) {
+            if (in_array($target, [SeasonStatus::Active, SeasonStatus::Finished, SeasonStatus::Archived, SeasonStatus::Cancelled], true)) {
                 $tournamentIds = $locked->tournaments()->pluck('id');
                 $counts['competitions'] = Competition::whereIn('tournament_id', $tournamentIds)->update(['status' => $target->value]);
                 $counts['tournaments'] = Tournament::whereIn('id', $tournamentIds)->update(['status' => $target->value]);
@@ -149,7 +149,8 @@ class CompetitionSetupController extends Controller
         $this->rejectDuplicate(Tournament::where('season_id', $season->id)->where('slug', $slug), 'name', 'Ya existe un torneo con este nombre en la temporada.');
         $tournament = Tournament::create([
             'season_id' => $season->id, 'name' => $request->string('name')->toString(), 'slug' => $slug,
-            'status' => 'planning', 'created_by' => $request->user()->id,
+            'status' => $season->status === SeasonStatus::Active ? SeasonStatus::Active : SeasonStatus::Planning,
+            'created_by' => $request->user()->id,
         ]);
         $this->audit->log($request, 'competition.tournament.created', $tournament, $league, [], $tournament->toArray());
         return back()->with('success', 'Torneo creado correctamente.');
@@ -236,7 +237,7 @@ class CompetitionSetupController extends Controller
                 'division_id' => $division->id,
                 'category_id' => $category->id,
                 'regulation_id' => $regulation->id,
-                'status' => SeasonStatus::Planning,
+                'status' => $tournament->season->status === SeasonStatus::Active ? SeasonStatus::Active : SeasonStatus::Planning,
                 'created_by' => $request->user()->id,
             ]);
             if ($regulation->status === RegulationStatus::Published) $regulation->update(['status' => RegulationStatus::InUse]);

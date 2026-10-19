@@ -146,6 +146,66 @@ class CompetitionSetupTest extends TestCase
         $this->assertSame('archived', $season->status->value);
     }
 
+    public function test_active_season_status_propagates_to_tournaments_and_competitions(): void
+    {
+        [$administrator, $league] = $this->leagueAdministrator(true);
+        [$tournament, $division, $category] = $this->structure($league, $administrator);
+        $regulation = Regulation::create([
+            'league_id' => $league->id, 'name' => 'Reglamento activo', 'version' => 1,
+            'status' => 'in_use', 'league_settings_snapshot' => [],
+        ]);
+        $competition = Competition::create([
+            'tournament_id' => $tournament->id, 'division_id' => $division->id,
+            'category_id' => $category->id, 'regulation_id' => $regulation->id,
+            'name' => 'Competencia activa', 'format' => 'round_robin',
+            'regular_leg_count' => 1, 'knockout_leg_count' => 2,
+            'minimum_roster_size' => 1, 'maximum_roster_size' => 30, 'status' => 'planning',
+        ]);
+
+        $this->actingAs($administrator)
+            ->withSession($this->contextSession($league, $this->leagueAdminRole))
+            ->put("/liga/temporadas/{$tournament->season_id}/estado", ['status' => 'active'])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame('active', $tournament->season->fresh()->status->value);
+        $this->assertSame('active', $tournament->fresh()->status->value);
+        $this->assertSame('active', $competition->fresh()->status->value);
+        $this->assertDatabaseHas('audit_logs', [
+            'league_id' => $league->id,
+            'action' => 'competition.season.status_changed',
+        ]);
+    }
+
+    public function test_structures_created_during_an_active_season_inherit_active_status(): void
+    {
+        [$administrator, $league] = $this->leagueAdministrator(true);
+        $session = $this->contextSession($league, $this->leagueAdminRole);
+        $season = Season::create([
+            'league_id' => $league->id,
+            ...$this->seasonPayload(),
+            'status' => 'active',
+            'created_by' => $administrator->id,
+        ]);
+        $division = Division::create(['league_id' => $league->id, 'name' => 'Primera fuerza', 'slug' => 'primera-fuerza', 'sort_order' => 1]);
+        $category = Category::create(['league_id' => $league->id, 'name' => 'Libre', 'slug' => 'libre', 'gender' => 'mixed']);
+        $regulation = Regulation::create([
+            'league_id' => $league->id, 'name' => 'Reglamento vigente', 'version' => 1,
+            'status' => 'published', 'league_settings_snapshot' => [],
+        ]);
+
+        $this->actingAs($administrator)->withSession($session)
+            ->post('/liga/torneos', ['season_id' => $season->id, 'name' => 'Torneo activo'])
+            ->assertSessionHasNoErrors();
+
+        $tournament = Tournament::where('season_id', $season->id)->firstOrFail();
+        $this->actingAs($administrator)->withSession($session)
+            ->post('/liga/competencias', $this->competitionPayload($tournament, $division, $category, $regulation))
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame('active', $tournament->fresh()->status->value);
+        $this->assertSame('active', Competition::firstOrFail()->status->value);
+    }
+
     public function test_terminal_season_status_propagates_to_tournaments_and_competitions(): void
     {
         [$administrator, $league] = $this->leagueAdministrator(true);
