@@ -6,6 +6,7 @@ use App\Domain\Identity\Models\User;
 use App\Domain\Referee\Models\Referee;
 use App\Domain\Referee\Services\RefereeAvailabilityService;
 use App\Domain\Scheduling\Models\GameMatch;
+use App\Domain\Scheduling\Models\Matchday;
 use App\Domain\Scheduling\Models\PlayingField;
 use App\Domain\Team\Models\TeamParticipation;
 use Carbon\Carbon;
@@ -148,6 +149,70 @@ class MatchSchedulingService
             ]);
             return $lockedMatch->fresh();
         });
+    }
+
+    public function reopenCancelled(GameMatch $match, array $data, User $actor): GameMatch
+    {
+        return DB::transaction(function () use ($match, $data, $actor): GameMatch {
+            $locked = GameMatch::whereKey($match->id)->lockForUpdate()->firstOrFail();
+            $locked->loadMissing(
+                'competition.tournament.season',
+                'competition.regulation',
+                'matchday',
+                'homeParticipation',
+                'awayParticipation',
+                'refereeAssignments',
+                'report',
+            );
+            $this->assertCancelledMatchMayReopen($locked);
+
+            $old = $this->snapshot($locked);
+            $matchday = Matchday::whereKey($locked->matchday_id)->lockForUpdate()->firstOrFail();
+            if (in_array($matchday->status->value, ['cancelled', 'completed'], true) && $matchday->published_at) {
+                $matchday->update(['status' => 'published']);
+            }
+
+            // Retiramos las designaciones anteriores dentro de la misma transacción. Así la
+            // nueva programación se valida contra el cuerpo arbitral elegido en el formulario.
+            $locked->refereeAssignments()->delete();
+            $locked->update(['status' => 'postponed']);
+
+            $updated = $this->updateSchedule($locked->fresh(), $data, $actor);
+            $updated = $this->assignReferees($updated, $data['referees'], $data['reason'], $actor);
+            $new = $this->snapshot($updated->fresh()->load('refereeAssignments'));
+            $updated->scheduleChanges()->create([
+                'type' => 'status_changed',
+                'old_values' => $old,
+                'new_values' => $new,
+                'reason' => $data['reason'],
+                'performed_by' => $actor->id,
+                'occurred_at' => now(),
+            ]);
+
+            return $updated->fresh();
+        });
+    }
+
+    private function assertCancelledMatchMayReopen(GameMatch $match): void
+    {
+        if ($match->status->value !== 'cancelled') {
+            throw ValidationException::withMessages(['status' => 'Solo se puede reprogramar un partido cancelado.']);
+        }
+        if ($match->report?->status?->value === 'approved') {
+            throw ValidationException::withMessages(['status' => 'No se puede reabrir un partido con cédula aprobada.']);
+        }
+        if ($match->homeParticipation->status->value !== 'active' || $match->awayParticipation->status->value !== 'active') {
+            throw ValidationException::withMessages(['status' => 'Ambos equipos deben tener una participación activa antes de reprogramar el partido.']);
+        }
+
+        $cancellation = $match->scheduleChanges()->where('type', 'cancelled')
+            ->latest('occurred_at')->latest('id')->first();
+        $previousStatus = $cancellation?->old_values['status'] ?? null;
+        if (! in_array($previousStatus, ['draft', 'scheduled', 'postponed'], true)) {
+            throw ValidationException::withMessages([
+                'status' => 'El partido fue cancelado después de iniciar y requiere una resolución administrativa especial.',
+            ]);
+        }
     }
 
     private function assertScheduleMayChange(GameMatch $match): void

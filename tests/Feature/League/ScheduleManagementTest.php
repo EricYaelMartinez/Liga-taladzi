@@ -16,6 +16,7 @@ use App\Domain\League\Models\LeagueSetting;
 use App\Domain\Referee\Models\Referee;
 use App\Domain\Scheduling\Models\GameMatch;
 use App\Domain\Scheduling\Models\Matchday;
+use App\Domain\Scheduling\Models\MatchReport;
 use App\Domain\Scheduling\Models\PlayingField;
 use App\Domain\Scheduling\Models\ScheduleTimeSlot;
 use App\Domain\Scheduling\Models\Venue;
@@ -317,6 +318,88 @@ class ScheduleManagementTest extends TestCase
 
         $this->assertDatabaseHas('matches', ['id' => $match->id, 'status' => 'cancelled']);
         $this->assertDatabaseHas('match_schedule_changes', ['match_id' => $match->id, 'type' => 'cancelled']);
+    }
+
+    public function test_administrator_reopens_cancelled_match_and_restores_cancelled_matchday(): void
+    {
+        [$administrator, $league] = $this->administrator();
+        [$matchday, $match] = $this->fixture($league);
+        $field = $this->field($league, 'Cancha reapertura');
+        $referee = $this->referee($league, 'Árbitro reapertura');
+        $session = $this->leagueSession($league, $this->adminRole);
+
+        $this->actingAs($administrator)->withSession($session)
+            ->post("/liga/partidos/{$match->id}/programar", $this->programPayload($field, $referee))
+            ->assertSessionHasNoErrors();
+        $this->actingAs($administrator)->withSession($session)
+            ->post("/liga/jornadas/{$matchday->id}/publicar", ['reason' => 'Publicación original'])
+            ->assertSessionHasNoErrors();
+        $this->actingAs($administrator)->withSession($session)
+            ->put("/liga/partidos/{$match->id}/estado", ['status' => 'cancelled', 'reason' => 'Cancha cerrada'])
+            ->assertSessionHasNoErrors();
+        $matchday->update(['status' => 'cancelled']);
+
+        $payload = $this->programPayload($field, $referee);
+        $payload['scheduled_at'] = '2027-01-11T12:00';
+        $payload['reason'] = 'La cancha volvió a estar disponible';
+        $this->actingAs($administrator)->withSession($session)
+            ->put("/liga/partidos/{$match->id}/reprogramar-cancelado", $payload)
+            ->assertSessionHasNoErrors();
+
+        $match->refresh();
+        $this->assertSame('scheduled', $match->status->value);
+        $this->assertSame('2027-01-11 12:00', $match->scheduled_at->copy()->setTimezone(config('app.timezone'))->format('Y-m-d H:i'));
+        $this->assertSame('published', $matchday->fresh()->status->value);
+        $this->assertDatabaseHas('match_referee_assignments', ['match_id' => $match->id, 'referee_id' => $referee->id, 'role' => 'central']);
+        $this->assertDatabaseHas('match_schedule_changes', ['match_id' => $match->id, 'type' => 'rescheduled']);
+        $this->assertDatabaseHas('match_schedule_changes', ['match_id' => $match->id, 'type' => 'status_changed', 'reason' => 'La cancha volvió a estar disponible']);
+    }
+
+    public function test_cancelled_match_that_had_started_cannot_be_reopened(): void
+    {
+        [$administrator, $league] = $this->administrator();
+        [$matchday, $match] = $this->fixture($league);
+        $field = $this->field($league, 'Cancha iniciada');
+        $referee = $this->referee($league, 'Árbitro iniciado');
+        $session = $this->leagueSession($league, $this->adminRole);
+        $this->actingAs($administrator)->withSession($session)->post("/liga/partidos/{$match->id}/programar", $this->programPayload($field, $referee));
+        $matchday->update(['status' => 'published', 'published_at' => now()]);
+        $match->update(['status' => 'in_progress']);
+        $this->actingAs($administrator)->withSession($session)
+            ->put("/liga/partidos/{$match->id}/estado", ['status' => 'cancelled', 'reason' => 'Incidente durante el encuentro'])
+            ->assertSessionHasNoErrors();
+
+        $payload = $this->programPayload($field, $referee);
+        $payload['scheduled_at'] = '2027-01-11T12:00';
+        $this->actingAs($administrator)->withSession($session)
+            ->put("/liga/partidos/{$match->id}/reprogramar-cancelado", $payload)
+            ->assertSessionHasErrors('status');
+
+        $this->assertSame('cancelled', $match->fresh()->status->value);
+    }
+
+    public function test_cancelled_match_with_approved_report_cannot_be_reopened(): void
+    {
+        [$administrator, $league] = $this->administrator();
+        [$matchday, $match] = $this->fixture($league);
+        $field = $this->field($league, 'Cancha cédula');
+        $referee = $this->referee($league, 'Árbitro cédula');
+        $session = $this->leagueSession($league, $this->adminRole);
+        $this->actingAs($administrator)->withSession($session)->post("/liga/partidos/{$match->id}/programar", $this->programPayload($field, $referee));
+        $matchday->update(['status' => 'published', 'published_at' => now()]);
+        $match->update(['status' => 'scheduled']);
+        $this->actingAs($administrator)->withSession($session)
+            ->put("/liga/partidos/{$match->id}/estado", ['status' => 'cancelled', 'reason' => 'Cancelación previa'])
+            ->assertSessionHasNoErrors();
+        MatchReport::create(['match_id' => $match->id, 'status' => 'approved', 'approved_at' => now(), 'created_by' => $administrator->id]);
+
+        $payload = $this->programPayload($field, $referee);
+        $payload['scheduled_at'] = '2027-01-11T12:00';
+        $this->actingAs($administrator)->withSession($session)
+            ->put("/liga/partidos/{$match->id}/reprogramar-cancelado", $payload)
+            ->assertSessionHasErrors('status');
+
+        $this->assertSame('cancelled', $match->fresh()->status->value);
     }
 
     private function administrator(): array

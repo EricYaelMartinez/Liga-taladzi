@@ -13,7 +13,14 @@
 @layer base {
     body {
         @apply m-0 bg-slate-100 text-slate-900 antialiased;
-        font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+        font-family: Aptos, "Segoe UI Variable", "Segoe UI", Inter, ui-sans-serif, system-ui, sans-serif;
+        font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+        letter-spacing: -0.006em;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+        font-family: "Aptos Display", "Segoe UI Variable Display", Aptos, "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+        letter-spacing: -0.025em;
     }
 
     button:disabled {
@@ -47,7 +54,7 @@
     }
 
     .nav-link {
-        @apply rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900;
+        @apply inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900;
     }
 
     .nav-link-active {
@@ -80,7 +87,7 @@
     }
 
     .nav-menu-link {
-        @apply block whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100;
+        @apply flex items-center gap-3 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100;
     }
 
     .nav-menu-link-active {
@@ -88,7 +95,19 @@
     }
 
     .mobile-nav-link {
-        @apply block rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100;
+        @apply flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100;
+    }
+
+    .menu-icon {
+        @apply grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-500 transition;
+    }
+
+    .nav-link:hover .menu-icon,
+    .nav-link-active .menu-icon,
+    .nav-menu-link:hover .menu-icon,
+    .nav-menu-link-active .menu-icon,
+    .mobile-nav-link:hover .menu-icon {
+        @apply bg-league-50 text-league-700;
     }
 
     .mobile-nav-heading {
@@ -106,4 +125,479 @@
     .stat-value {
         @apply text-3xl font-semibold text-league-900;
     }
+
+    .participants-hero {
+        @apply relative overflow-hidden rounded-[1.75rem] bg-league-900 text-white shadow-2xl shadow-slate-950/20;
+        background-image: linear-gradient(105deg, color-mix(in srgb, var(--color-league-900) 96%, #07152b), color-mix(in srgb, var(--color-league-600) 70%, transparent)), url('/images/public/league-stadium.jpg');
+        background-position: center 58%;
+        background-size: cover;
+    }
+
+    .participants-hero-content {
+        @apply relative z-10 px-6 py-7 sm:px-8 lg:px-10 lg:py-9;
+    }
+
+    .participants-tabs {
+        @apply flex min-w-max gap-1.5 rounded-xl bg-slate-100 p-1.5;
+    }
+
+    .participants-tab {
+        @apply rounded-lg px-4 py-2.5 text-sm font-bold text-slate-500 transition hover:bg-white hover:text-slate-900;
+    }
+
+    .participants-tab-active {
+        @apply bg-white text-league-700 shadow-sm ring-1 ring-slate-200;
+    }
+
+    .participants-stat {
+        @apply flex min-h-28 items-center gap-4 rounded-2xl border border-white/80 bg-white/95 p-5 shadow-md shadow-slate-900/5;
+    }
+
+    .participants-stat-icon {
+        @apply grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-league-50 text-lg font-black text-league-700;
+    }
+
+    .participants-stat strong {
+        @apply block text-3xl font-bold text-slate-900;
+    }
+
+    .participants-stat p {
+        @apply mt-0.5 text-xs font-semibold text-slate-500;
+    }
+
+    .participants-toolbar {
+        @apply grid gap-3 rounded-2xl border border-white/80 bg-white/95 p-4 shadow-md shadow-slate-900/5 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_14rem_14rem];
+    }
+
+    .registration-shell {
+        @apply mt-7 overflow-hidden rounded-[1.75rem] border border-white/80 bg-white/95 shadow-xl shadow-slate-900/5;
+    }
+
+    .registration-heading {
+        @apply flex flex-col gap-4 border-b border-slate-200 bg-gradient-to-r from-league-900 to-league-700 px-6 py-6 text-white sm:flex-row sm:items-center sm:justify-between sm:px-8;
+    }
+
+    .registration-step {
+        @apply inline-flex w-fit items-center rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-gold-400;
+    }
+
+    .registration-grid {
+        @apply grid items-start gap-7 p-5 sm:p-7 xl:grid-cols-[minmax(0,1fr)_19rem];
+    }
+
+    .registration-main {
+        @apply space-y-5;
+    }
+
+    .form-section {
+        @apply rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6;
+    }
+
+    .form-section-heading {
+        @apply mb-5 flex items-start gap-3 border-b border-slate-100 pb-4;
+    }
+
+    .form-section-icon {
+        @apply grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-league-50 text-lg text-league-700;
+    }
+
+    .form-section-heading h3 {
+        @apply font-bold text-slate-900;
+    }
+
+    .form-section-heading p {
+        @apply mt-1 text-xs leading-5 text-slate-500;
+    }
+
+    .form-field-hint {
+        @apply mt-1.5 text-xs leading-5 text-slate-500;
+    }
+
+    .form-required {
+        @apply ml-1 text-rose-600;
+    }
+
+    .registration-aside {
+        @apply space-y-4 xl:sticky xl:top-24;
+    }
+
+    .registration-note {
+        @apply rounded-2xl border border-slate-200 bg-slate-50 p-5;
+    }
+
+    .registration-note h3 {
+        @apply font-bold text-slate-900;
+    }
+
+    .registration-note ul {
+        @apply mt-3 space-y-2.5 text-xs leading-5 text-slate-600;
+    }
+
+    .registration-note li {
+        @apply flex gap-2;
+    }
+
+    .registration-note li::before {
+        content: '✓';
+        @apply font-black text-league-600;
+    }
+
+    .registration-actions {
+        @apply rounded-2xl border border-league-100 bg-league-50 p-5;
+    }
+
+    .registration-actions .btn-primary {
+        @apply w-full min-h-12;
+    }
+
+    .file-field {
+        @apply rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3 transition hover:border-league-600 hover:bg-league-50/40;
+    }
+
+    .file-field .form-input {
+        @apply border-0 bg-transparent p-0 shadow-none focus:ring-0;
+    }
+
+    .form-input[type='file']::file-selector-button {
+        @apply mr-3 cursor-pointer rounded-lg border-0 bg-league-900 px-3 py-2 text-xs font-bold text-white transition hover:bg-league-700;
+    }
+
+    .color-field {
+        @apply flex items-center gap-3 rounded-xl border border-slate-300 bg-white p-2.5;
+    }
+
+    .color-field input[type='color'] {
+        @apply h-9 w-12 cursor-pointer rounded-lg border-0 bg-transparent p-0;
+    }
+
+    .color-field span {
+        @apply text-xs font-semibold uppercase tracking-wide text-slate-600;
+    }
+
+    .entity-card {
+        @apply overflow-hidden rounded-2xl border border-white/80 bg-white/95 shadow-md shadow-slate-900/5 transition hover:-translate-y-0.5 hover:shadow-lg;
+    }
+
+    .entity-status {
+        @apply inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ring-1 ring-inset;
+    }
+
+    .entity-status-active { @apply bg-emerald-50 text-emerald-700 ring-emerald-200; }
+    .entity-status-pending { @apply bg-amber-50 text-amber-700 ring-amber-200; }
+    .entity-status-suspended { @apply bg-orange-50 text-orange-700 ring-orange-200; }
+    .entity-status-rejected { @apply bg-rose-50 text-rose-700 ring-rose-200; }
+    .entity-status-neutral { @apply bg-slate-100 text-slate-600 ring-slate-200; }
+
+    .entity-avatar {
+        @apply grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 text-xl font-black text-league-700 shadow-sm;
+    }
+
+    .entity-avatar img {
+        @apply h-full w-full object-contain p-2;
+    }
+
+    .entity-meta {
+        @apply inline-flex items-center gap-1.5 rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-600;
+    }
+
+    .match-operations-page {
+        @apply space-y-7;
+    }
+
+    .match-operations-hero {
+        @apply relative overflow-hidden rounded-[1.75rem] border border-white/30 text-white shadow-2xl shadow-slate-950/20;
+        background-image: linear-gradient(105deg, rgba(27, 42, 74, .88), rgba(46, 125, 50, .58)), url('/images/public/league-stadium.jpg');
+        background-position: center 54%;
+        background-size: cover;
+    }
+
+    .match-operations-hero::after {
+        content: '';
+        @apply pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/25 to-transparent;
+    }
+
+    .match-operations-hero-content {
+        @apply relative z-10 flex flex-col gap-6 px-6 py-8 sm:px-8 lg:flex-row lg:items-end lg:justify-between lg:px-10 lg:py-10;
+    }
+
+    .match-kpi-grid {
+        @apply grid gap-3 sm:grid-cols-2 lg:grid-cols-4;
+    }
+
+    .match-kpi {
+        @apply flex min-h-24 items-center gap-4 rounded-2xl border border-white/60 bg-white/75 p-4 shadow-lg shadow-slate-900/5 backdrop-blur-md;
+    }
+
+    .match-kpi-icon {
+        @apply grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-league-900 text-lg font-black text-white;
+    }
+
+    .match-kpi strong {
+        @apply block text-2xl font-black text-slate-900;
+    }
+
+    .match-kpi p {
+        @apply mt-0.5 text-xs font-semibold text-slate-600;
+    }
+
+    .match-flow-note {
+        @apply flex flex-col gap-3 rounded-2xl border border-white/60 bg-white/70 p-4 text-sm text-slate-700 shadow-lg shadow-slate-900/5 backdrop-blur-md sm:flex-row sm:items-center;
+    }
+
+    .match-flow-note strong {
+        @apply text-league-900;
+    }
+
+    .match-card {
+        @apply overflow-hidden rounded-[1.4rem] border border-white/70 bg-white/78 shadow-xl shadow-slate-900/10 backdrop-blur-md transition hover:-translate-y-0.5 hover:shadow-2xl;
+    }
+
+    .match-card-header {
+        @apply flex flex-col justify-between gap-4 border-b border-white/80 bg-white/50 p-5 sm:flex-row sm:items-center sm:p-6;
+    }
+
+    .match-collapse-bar {
+        @apply flex flex-col gap-3 border-b border-white/80 bg-white/35 px-5 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6;
+    }
+
+    .match-collapse-button {
+        @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white/75 px-4 py-2 text-xs font-bold text-slate-700 shadow-sm backdrop-blur-sm transition hover:border-league-600 hover:text-league-700;
+    }
+
+    .match-collapse-button span {
+        @apply text-base transition-transform duration-200;
+    }
+
+    .match-status {
+        @apply inline-flex w-fit items-center rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.12em] ring-1 ring-inset;
+    }
+
+    .match-status-ready { @apply bg-emerald-50 text-emerald-700 ring-emerald-200; }
+    .match-status-draft { @apply bg-amber-50 text-amber-700 ring-amber-200; }
+    .match-status-review { @apply bg-sky-50 text-sky-700 ring-sky-200; }
+    .match-status-alert { @apply bg-rose-50 text-rose-700 ring-rose-200; }
+    .match-status-neutral { @apply bg-slate-100 text-slate-600 ring-slate-200; }
+
+    .match-scoreboard {
+        @apply grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 text-center sm:gap-5;
+    }
+
+    .match-scoreboard-team {
+        @apply min-w-0 rounded-xl border border-white/70 bg-white/60 px-3 py-4 backdrop-blur-sm;
+    }
+
+    .match-scoreboard-team strong {
+        @apply block truncate text-sm font-bold text-slate-900 sm:text-base;
+    }
+
+    .match-scoreboard-center {
+        @apply rounded-xl bg-league-900 px-4 py-3 text-lg font-black text-white shadow-lg shadow-league-900/20 sm:px-6 sm:text-xl;
+    }
+
+    .lineup-team-panel {
+        @apply p-5 sm:p-6;
+    }
+
+    .lineup-player-row {
+        @apply flex items-center gap-3 rounded-xl border border-white/80 bg-white/65 px-3 py-2.5 text-sm shadow-sm backdrop-blur-sm;
+    }
+
+    .lineup-number {
+        @apply grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-league-900 text-xs font-black text-white;
+    }
+
+    .match-modal-panel {
+        @apply border border-white/70 bg-white/95 shadow-2xl shadow-slate-950/30 backdrop-blur-xl;
+    }
+
+    .match-empty-state {
+        @apply rounded-[1.4rem] border border-dashed border-white/80 bg-white/65 p-14 text-center text-slate-600 shadow-lg backdrop-blur-md;
+    }
+
+    .participants-page ~ div.fixed {
+        backdrop-filter: blur(5px);
+    }
+
+    .participants-page ~ div.fixed > form,
+    .participants-page ~ div.fixed > div {
+        @apply border border-white/70 shadow-2xl shadow-slate-950/25;
+    }
+
+    .competition-page {
+        @apply pb-8;
+    }
+
+    .competition-hero {
+        @apply relative overflow-hidden rounded-[1.75rem] border border-white/20 text-white shadow-2xl shadow-slate-950/20;
+        background-image: linear-gradient(105deg, rgba(27, 42, 74, .96), rgba(27, 42, 74, .82) 48%, rgba(46, 125, 50, .66)), url('/images/public/league-stadium.jpg');
+        background-position: center 54%;
+        background-size: cover;
+    }
+
+    .competition-hero::after {
+        content: '';
+        @apply pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/30 to-transparent;
+    }
+
+    .competition-hero-content {
+        @apply relative z-10 flex flex-col gap-7 px-6 py-8 sm:px-8 lg:flex-row lg:items-end lg:justify-between lg:px-10 lg:py-10;
+    }
+
+    .competition-eyebrow {
+        @apply inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-gold-400 backdrop-blur-sm;
+    }
+
+    .competition-hero-summary {
+        @apply flex w-fit flex-col gap-2 rounded-2xl border border-white/15 bg-slate-950/20 px-5 py-4 text-xs text-slate-200 backdrop-blur-md;
+    }
+
+    .competition-hero-summary strong {
+        @apply mr-1 text-base text-white;
+    }
+
+    .competition-alert {
+        @apply flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50/95 px-5 py-4 text-amber-900 shadow-sm;
+    }
+
+    .competition-alert strong { @apply text-sm; }
+    .competition-alert p { @apply mt-1 text-xs leading-5; }
+    .competition-alert a { @apply font-bold underline decoration-amber-400 underline-offset-2; }
+
+    .competition-tabs {
+        @apply mt-5 flex gap-1 overflow-x-auto rounded-2xl border border-white/80 bg-white/80 p-1.5 shadow-lg shadow-slate-900/5 backdrop-blur-md;
+    }
+
+    .competition-tab {
+        @apply flex min-w-max items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-500 transition sm:px-4 sm:text-sm;
+    }
+
+    .competition-tab:hover { @apply bg-white text-slate-900; }
+    .competition-tab-active { @apply bg-league-900 text-white shadow-md hover:bg-league-900 hover:text-white; }
+    .competition-tab-icon { @apply grid h-7 w-7 place-items-center rounded-lg bg-slate-100 text-slate-500; }
+    .competition-tab-active .competition-tab-icon { @apply bg-white/10 text-gold-400; }
+
+    .competition-stat {
+        @apply flex min-h-28 items-center gap-4 rounded-2xl border border-white/80 bg-white/90 p-5 shadow-lg shadow-slate-900/5 backdrop-blur-md;
+    }
+
+    .competition-stat-icon {
+        @apply grid h-13 w-13 shrink-0 place-items-center;
+    }
+
+    .competition-stat strong { @apply block text-3xl font-black text-slate-900; }
+    .competition-stat p { @apply text-xs font-bold text-slate-600; }
+    .competition-stat small { @apply mt-1 block text-[11px] text-slate-400; }
+
+    .competition-panel {
+        @apply rounded-[1.5rem] border border-white/80 bg-white/90 shadow-xl shadow-slate-900/5 backdrop-blur-md;
+    }
+
+    .competition-panel-heading {
+        @apply flex items-center gap-4 border-b border-slate-200 bg-gradient-to-r from-league-900 to-[#243c62] px-5 py-5 text-white sm:px-7;
+    }
+
+    .competition-panel-heading > span,
+    .section-heading-icon {
+        @apply grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/10 text-gold-400 ring-1 ring-white/15;
+    }
+
+    .competition-panel-heading p,
+    .section-kicker {
+        @apply text-[10px] font-black uppercase tracking-[0.16em] text-league-600;
+    }
+
+    .competition-panel-heading p { @apply text-gold-400; }
+    .competition-panel-heading h2 { @apply mt-0.5 text-xl font-bold; }
+
+    .section-heading { @apply flex items-start gap-4; }
+    .section-heading.compact { @apply items-center; }
+    .section-heading-icon { @apply bg-league-900 text-gold-400; }
+    .section-heading h2 { @apply mt-1 text-xl font-bold text-slate-900 sm:text-2xl; }
+    .section-heading span:not(.section-heading-icon) { @apply mt-1 block text-sm text-slate-500; }
+
+    .competition-workflow {
+        @apply mt-6 grid gap-3 md:grid-cols-5;
+    }
+
+    .competition-workflow li {
+        @apply relative flex gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4;
+    }
+
+    .competition-workflow li > span {
+        @apply grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-league-900 text-xs font-black text-white;
+    }
+
+    .competition-workflow strong { @apply block text-xs font-bold text-slate-800; }
+    .competition-workflow small { @apply mt-1 block text-[10px] leading-4 text-slate-500; }
+
+    .catalog-list { @apply overflow-hidden rounded-2xl border border-slate-200; }
+    .catalog-item { @apply grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-slate-100 px-4 py-3 last:border-0; }
+    .catalog-order { @apply grid h-9 w-9 place-items-center rounded-xl bg-league-50 text-xs font-black text-league-700; }
+    .catalog-item strong { @apply block text-sm font-bold text-slate-800; }
+    .catalog-item small { @apply mt-0.5 block text-[11px] text-slate-500; }
+
+    .competition-status {
+        @apply inline-flex h-fit items-center rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.1em] ring-1 ring-inset;
+    }
+
+    .competition-status-active { @apply bg-emerald-50 text-emerald-700 ring-emerald-200; }
+    .competition-status-registration { @apply bg-sky-50 text-sky-700 ring-sky-200; }
+    .competition-status-finished { @apply bg-indigo-50 text-indigo-700 ring-indigo-200; }
+    .competition-status-muted { @apply bg-slate-100 text-slate-500 ring-slate-200; }
+    .competition-status-planning { @apply bg-amber-50 text-amber-700 ring-amber-200; }
+
+    .empty-state { @apply p-7 text-center text-sm text-slate-500; }
+    .form-information { @apply flex gap-3 rounded-xl border border-sky-100 bg-sky-50 p-4 text-xs leading-5 text-sky-900; }
+
+    .season-card {
+        @apply overflow-hidden rounded-[1.4rem] border border-white/80 bg-white/90 shadow-xl shadow-slate-900/5 backdrop-blur-md;
+    }
+
+    .season-card-top { @apply flex items-center gap-4 border-b border-slate-100 p-5 sm:p-6; }
+    .season-calendar { @apply grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-league-900 text-gold-400; }
+    .season-calendar strong { @apply -mt-2 text-[10px] text-white; }
+    .season-card h3 { @apply text-lg font-bold text-slate-900; }
+    .season-card-top p { @apply mt-1 text-xs text-slate-500; }
+    .season-tournaments { @apply space-y-2 p-4 sm:p-5; }
+    .tournament-row { @apply grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-xl bg-slate-50 px-3 py-3; }
+    .tournament-row > span:first-child { @apply grid h-8 w-8 place-items-center rounded-lg bg-white text-league-700 shadow-sm; }
+    .tournament-row strong { @apply block text-xs font-bold text-slate-800; }
+    .tournament-row small { @apply mt-0.5 block text-[10px] text-slate-500; }
+    .season-actions { @apply flex flex-wrap gap-2 border-t border-slate-100 bg-slate-50/80 px-5 py-4; }
+
+    .form-block { @apply rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5; }
+    fieldset.form-block legend,
+    .form-block h3 { @apply px-1 text-sm font-bold text-slate-900; }
+    fieldset.form-block > p { @apply mt-1 px-1 text-xs leading-5 text-slate-500; }
+
+    .tiebreaker-row { @apply grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5; }
+    .tiebreaker-row > span { @apply grid h-7 w-7 place-items-center rounded-lg bg-league-50 text-xs font-black text-league-700; }
+    .tiebreaker-row strong { @apply text-xs text-slate-700; }
+    .tiebreaker-row > div { @apply flex gap-1; }
+    .tiebreaker-row button { @apply grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-sm font-bold text-slate-600 transition hover:border-league-600 hover:text-league-700 disabled:opacity-30; }
+
+    .regulation-card { @apply rounded-[1.4rem] border border-white/80 bg-white/90 p-5 shadow-lg shadow-slate-900/5 backdrop-blur-md; }
+    .regulation-icon { @apply grid h-12 w-12 shrink-0 place-items-center; }
+    .regulation-card h3 { @apply text-base font-bold text-slate-900; }
+    .regulation-card h3 + p { @apply mt-1 text-xs text-slate-500; }
+    .regulation-score { @apply mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4; }
+    .regulation-score span { @apply rounded-xl bg-slate-50 px-3 py-2.5; }
+    .regulation-score small { @apply block text-[9px] font-bold uppercase tracking-wider text-slate-400; }
+    .regulation-score strong { @apply mt-1 block text-lg font-black text-slate-800; }
+    .criterion-chip { @apply rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600; }
+    .protected-note { @apply mt-5 flex items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2.5 text-[11px] font-semibold text-emerald-700; }
+
+    .competition-toolbar { @apply grid items-center gap-3 rounded-2xl border border-white/80 bg-white/85 p-4 shadow-lg shadow-slate-900/5 backdrop-blur-md sm:grid-cols-[minmax(0,1fr)_14rem_auto]; }
+    .competition-toolbar > span { @apply text-right text-xs font-semibold text-slate-500; }
+    .competition-card { @apply overflow-hidden rounded-[1.4rem] border border-white/80 bg-white/90 shadow-xl shadow-slate-900/5 backdrop-blur-md transition hover:-translate-y-0.5 hover:shadow-2xl; }
+    .competition-card header { @apply flex items-start gap-4 p-5 sm:p-6; }
+    .competition-card-icon { @apply grid h-12 w-12 shrink-0 place-items-center; }
+    .competition-card h3 { @apply text-base font-bold text-slate-900; }
+    .competition-card h3 + p { @apply mt-1 text-xs text-slate-500; }
+    .competition-card dl { @apply grid grid-cols-2 gap-px border-y border-slate-100 bg-slate-100; }
+    .competition-card dl div { @apply bg-white px-5 py-3; }
+    .competition-card dt { @apply text-[9px] font-black uppercase tracking-wider text-slate-400; }
+    .competition-card dd { @apply mt-1 text-xs font-bold text-slate-700; }
+    .competition-card footer { @apply bg-slate-50 px-5 py-3.5; }
+    .competition-card footer span { @apply flex items-center gap-2 text-[11px] font-semibold text-slate-600; }
 }

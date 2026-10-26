@@ -29,6 +29,8 @@ const activeTab = ref(props.canManage ? 'resumen' : 'equipos');
 const editingTeam = ref<Team | null>(null);
 const representativeTeam = ref<Team | null>(null);
 const participationTeam = ref<Team | null>(null);
+const teamSearch = ref('');
+const teamStatusFilter = ref('all');
 
 const createForm = useForm({
     name: '', short_name: '', primary_color: '#125444', secondary_color: '#ffffff', phone: '', email: '',
@@ -49,11 +51,20 @@ const tabs = computed(() => props.canManage
     : [['equipos', 'Mi equipo'], ['solicitudes', 'Mis solicitudes']]);
 const pendingParticipations = computed(() => props.teams.flatMap((team) => team.participations.filter((item) => item.status === 'pending').map((participation) => ({ team, participation }))));
 const pendingChanges = computed(() => props.teams.flatMap((team) => team.change_requests.map((change) => ({ team, change }))));
+const visibleTeams = computed(() => props.teams.filter((team) => {
+    const query = teamSearch.value.trim().toLocaleLowerCase('es-MX');
+    const matchesQuery = !query || [team.name, team.short_name, team.active_representative?.user.name ?? ''].some((value) => value.toLocaleLowerCase('es-MX').includes(query));
+    return matchesQuery && (teamStatusFilter.value === 'all' || team.status === teamStatusFilter.value);
+}));
 const labels: Record<string, string> = {
     pending: 'Pendiente', active: 'Activo', suspended: 'Suspendido', inactive: 'Inactivo', deregistered: 'Baja', rejected: 'Rechazado',
 };
 
 function file(event: Event): File | null { return (event.target as HTMLInputElement).files?.[0] ?? null; }
+function initials(team: Team): string { return (team.short_name || team.name).split(/\s+/).map((word) => word[0]).join('').slice(0, 3).toUpperCase(); }
+function statusClass(status: string): string {
+    return ({ active: 'entity-status-active', pending: 'entity-status-pending', suspended: 'entity-status-suspended', rejected: 'entity-status-rejected', inactive: 'entity-status-neutral', deregistered: 'entity-status-neutral' } as Record<string, string>)[status] ?? 'entity-status-neutral';
+}
 function submitTeam() {
     createForm.post('/liga/equipos', { forceFormData: true, preserveScroll: true, onSuccess: () => { createForm.reset(); activeTab.value = 'equipos'; } });
 }
@@ -102,45 +113,100 @@ function submitParticipation() {
 <template>
     <Head title="Equipos y representantes" />
     <AppLayout>
-        <section>
-            <p class="text-sm font-semibold uppercase tracking-[0.18em] text-league-600">Módulo 5</p>
-            <h1 class="mt-1 text-3xl font-semibold">Equipos y representantes</h1>
-            <p class="mt-2 text-slate-600">Administra la identidad permanente del equipo, su propietario y sus participaciones.</p>
+        <section class="participants-page">
+            <div class="participants-hero">
+                <div class="participants-hero-content">
+                    <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                        <div class="max-w-2xl"><p class="text-xs font-bold uppercase tracking-[0.24em] text-gold-400">Participantes · Módulo 5</p><h1 class="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Equipos y representantes</h1><p class="mt-2 text-sm text-white/75 sm:text-base">Centraliza la identidad de cada club, sus responsables y la participación en las competencias de la liga.</p></div>
+                        <button v-if="canManage" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-gold-500 px-4 py-2.5 text-sm font-bold text-league-900 shadow-lg transition hover:bg-gold-400" @click="activeTab = 'registrar'">＋ Registrar equipo</button>
+                    </div>
+                </div>
+            </div>
 
-            <div class="mt-7 overflow-x-auto border-b border-slate-200"><div class="flex min-w-max gap-1">
-                <button v-for="tab in tabs" :key="tab[0]" type="button" class="rounded-t-xl px-4 py-3 text-sm font-semibold" :class="activeTab === tab[0] ? 'bg-league-700 text-white' : 'text-slate-600 hover:bg-slate-200'" @click="activeTab = tab[0]">{{ tab[1] }}</button>
+            <div class="mt-6 overflow-x-auto"><div class="participants-tabs">
+                <button v-for="tab in tabs" :key="tab[0]" type="button" class="participants-tab" :class="activeTab === tab[0] ? 'participants-tab-active' : ''" @click="activeTab = tab[0]">{{ tab[1] }}</button>
             </div></div>
 
             <div v-if="activeTab === 'resumen' && canManage" class="mt-7 space-y-6">
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <div class="stat-card"><span class="stat-label">Equipos</span><span class="stat-value">{{ teams.length }}</span></div>
-                    <div class="stat-card"><span class="stat-label">Activos</span><span class="stat-value">{{ teams.filter((team) => team.status === 'active').length }}</span></div>
-                    <div class="stat-card"><span class="stat-label">Participaciones pendientes</span><span class="stat-value">{{ pendingParticipations.length }}</span></div>
-                    <div class="stat-card"><span class="stat-label">Cambios pendientes</span><span class="stat-value">{{ pendingChanges.length }}</span></div>
+                    <div class="participants-stat"><span class="participants-stat-icon">♜</span><div><strong>{{ teams.length }}</strong><p>Equipos registrados</p></div></div>
+                    <div class="participants-stat"><span class="participants-stat-icon bg-emerald-50 text-emerald-700">✓</span><div><strong>{{ teams.filter((team) => team.status === 'active').length }}</strong><p>Equipos activos</p></div></div>
+                    <div class="participants-stat"><span class="participants-stat-icon bg-amber-50 text-amber-700">◷</span><div><strong>{{ pendingParticipations.length }}</strong><p>Participaciones pendientes</p></div></div>
+                    <div class="participants-stat"><span class="participants-stat-icon bg-sky-50 text-sky-700">✎</span><div><strong>{{ pendingChanges.length }}</strong><p>Cambios por revisar</p></div></div>
                 </div>
                 <div v-if="!representatives.length" class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">No hay representantes disponibles. Crea o asigna primero un usuario con el rol <strong>Representante de equipo</strong> desde Miembros.</div>
                 <div v-if="!competitions.length" class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">No hay competencias disponibles. Crea primero la temporada, torneo, división, categoría y competencia.</div>
             </div>
 
-            <form v-if="activeTab === 'registrar' && canManage" class="card mt-7 space-y-6 p-6 sm:p-8" @submit.prevent="submitTeam">
-                <div><h2 class="text-xl font-semibold">Registrar equipo</h2><p class="mt-1 text-sm text-slate-600">El equipo quedará pendiente hasta que apruebes su participación.</p></div>
-                <div class="grid gap-5 sm:grid-cols-2"><div><label class="form-label">Nombre</label><input v-model="createForm.name" class="form-input" required maxlength="150"><FormError :message="createForm.errors.name" /></div><div><label class="form-label">Nombre corto</label><input v-model="createForm.short_name" class="form-input" required maxlength="30"><FormError :message="createForm.errors.short_name" /></div></div>
-                <div class="grid gap-5 sm:grid-cols-2"><div><label class="form-label">Color principal</label><input v-model="createForm.primary_color" class="form-input h-12" type="color"></div><div><label class="form-label">Color secundario</label><input v-model="createForm.secondary_color" class="form-input h-12" type="color"></div></div>
-                <div class="grid gap-5 sm:grid-cols-2"><div><label class="form-label">Teléfono privado</label><input v-model="createForm.phone" class="form-input" maxlength="30"></div><div><label class="form-label">Correo privado</label><input v-model="createForm.email" class="form-input" type="email" maxlength="150"><FormError :message="createForm.errors.email" /></div></div>
-                <div class="grid gap-5 sm:grid-cols-2"><div><label class="form-label">Fecha de fundación (opcional)</label><input v-model="createForm.founded_on" class="form-input" type="date"></div><div><label class="form-label">Competencia</label><select v-model="createForm.competition_id" class="form-input" required><option :value="null" disabled>Selecciona</option><option v-for="competition in competitions" :key="competition.id" :value="competition.id">{{ competition.tournament.season.name }} · {{ competition.name }} · {{ competition.division.name }} · {{ competition.category.name }}</option></select><FormError :message="createForm.errors.competition_id" /></div></div>
-                <div><label class="form-label">Descripción (opcional)</label><textarea v-model="createForm.description" class="form-input min-h-24" maxlength="2000"></textarea></div>
-                <div class="grid gap-5 sm:grid-cols-2"><div><label class="form-label">Escudo (opcional)</label><input class="form-input" type="file" accept="image/jpeg,image/png,image/webp" @change="createForm.crest = file($event)"><FormError :message="createForm.errors.crest" /></div><div><label class="form-label">Fotografía del equipo (opcional)</label><input class="form-input" type="file" accept="image/jpeg,image/png,image/webp" @change="createForm.team_photo = file($event)"><FormError :message="createForm.errors.team_photo" /></div></div>
-                <div class="rounded-2xl bg-slate-50 p-5"><h3 class="font-semibold">Propietario / representante</h3><div class="mt-4 grid gap-5 sm:grid-cols-3"><div><label class="form-label">Usuario representante</label><select v-model="createForm.league_membership_id" class="form-input" required><option :value="null" disabled>Selecciona</option><option v-for="representative in representatives" :key="representative.id" :value="representative.id">{{ representative.user.name }} · {{ representative.user.email }}</option></select><FormError :message="createForm.errors.league_membership_id" /></div><div><label class="form-label">Fotografía</label><input class="form-input" type="file" required accept="image/jpeg,image/png,image/webp" @change="createForm.representative_photo = file($event)"><FormError :message="createForm.errors.representative_photo" /></div><div><label class="form-label">Imagen del INE</label><input class="form-input" type="file" required accept="image/jpeg,image/png,image/webp" @change="createForm.representative_ine = file($event)"><FormError :message="createForm.errors.representative_ine" /></div></div></div>
-                <div><label class="form-label">Motivo del registro</label><textarea v-model="createForm.reason" class="form-input min-h-20" required maxlength="500"></textarea><FormError :message="createForm.errors.reason" /></div>
-                <button class="btn-primary" :disabled="createForm.processing || !representatives.length || !competitions.length">Registrar equipo</button>
+            <form v-if="activeTab === 'registrar' && canManage" class="registration-shell" @submit.prevent="submitTeam">
+                <header class="registration-heading">
+                    <div><span class="registration-step">Nuevo registro</span><h2 class="mt-3 text-2xl font-bold">Registrar equipo</h2><p class="mt-1 text-sm text-white/75">Integra la identidad, participación y responsable oficial del equipo.</p></div>
+                    <p class="max-w-xs text-xs leading-5 text-white/70"><span class="font-bold text-gold-400">*</span> Los campos marcados son obligatorios.</p>
+                </header>
+
+                <div class="registration-grid">
+                    <div class="registration-main">
+                        <section class="form-section">
+                            <div class="form-section-heading"><span class="form-section-icon">⚑</span><div><h3>Identidad del equipo</h3><p>Nombre oficial, abreviatura e imagen institucional.</p></div></div>
+                            <div class="grid gap-5 sm:grid-cols-2">
+                                <div><label class="form-label">Nombre oficial<span class="form-required">*</span></label><input v-model="createForm.name" class="form-input" required maxlength="150" placeholder="Ej. Deportivo Municipal"><FormError :message="createForm.errors.name" /></div>
+                                <div><label class="form-label">Nombre corto<span class="form-required">*</span></label><input v-model="createForm.short_name" class="form-input" required maxlength="30" placeholder="Ej. D. Municipal"><p class="form-field-hint">Se utilizará en tablas y marcadores.</p><FormError :message="createForm.errors.short_name" /></div>
+                                <div><label class="form-label">Fecha de fundación</label><input v-model="createForm.founded_on" class="form-input" type="date"></div>
+                                <div class="sm:row-span-2"><label class="form-label">Descripción</label><textarea v-model="createForm.description" class="form-input min-h-28" maxlength="2000" placeholder="Historia, sede o información relevante del equipo"></textarea><p class="form-field-hint">Opcional · máximo 2,000 caracteres.</p></div>
+                                <div class="grid gap-4 sm:grid-cols-2 sm:col-span-1">
+                                    <div><label class="form-label">Color principal</label><div class="color-field"><input v-model="createForm.primary_color" type="color"><span>{{ createForm.primary_color }}</span></div></div>
+                                    <div><label class="form-label">Color secundario</label><div class="color-field"><input v-model="createForm.secondary_color" type="color"><span>{{ createForm.secondary_color }}</span></div></div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="form-section">
+                            <div class="form-section-heading"><span class="form-section-icon">⚙</span><div><h3>Participación y contacto</h3><p>Competencia inicial y medios privados de comunicación.</p></div></div>
+                            <div class="grid gap-5 sm:grid-cols-2">
+                                <div class="sm:col-span-2"><label class="form-label">Competencia<span class="form-required">*</span></label><select v-model="createForm.competition_id" class="form-input" required><option :value="null" disabled>Selecciona temporada, competencia, división y categoría</option><option v-for="competition in competitions" :key="competition.id" :value="competition.id">{{ competition.tournament.season.name }} · {{ competition.name }} · {{ competition.division.name }} · {{ competition.category.name }}</option></select><FormError :message="createForm.errors.competition_id" /></div>
+                                <div><label class="form-label">Teléfono privado</label><input v-model="createForm.phone" class="form-input" type="tel" maxlength="30" placeholder="Ej. 951 000 0000"><p class="form-field-hint">Visible solo para administración.</p></div>
+                                <div><label class="form-label">Correo privado</label><input v-model="createForm.email" class="form-input" type="email" maxlength="150" placeholder="equipo@correo.com"><FormError :message="createForm.errors.email" /></div>
+                            </div>
+                        </section>
+
+                        <section class="form-section">
+                            <div class="form-section-heading"><span class="form-section-icon">▣</span><div><h3>Recursos gráficos</h3><p>Archivos que identificarán al equipo en el portal y sus documentos.</p></div></div>
+                            <div class="grid gap-5 sm:grid-cols-2">
+                                <div><label class="form-label">Escudo del equipo</label><div class="file-field"><input class="form-input" type="file" accept="image/jpeg,image/png,image/webp" @change="createForm.crest = file($event)"><p class="form-field-hint">JPG, PNG o WEBP. Preferentemente cuadrado.</p></div><FormError :message="createForm.errors.crest" /></div>
+                                <div><label class="form-label">Fotografía del equipo</label><div class="file-field"><input class="form-input" type="file" accept="image/jpeg,image/png,image/webp" @change="createForm.team_photo = file($event)"><p class="form-field-hint">Imagen grupal opcional del plantel.</p></div><FormError :message="createForm.errors.team_photo" /></div>
+                            </div>
+                        </section>
+
+                        <section class="form-section">
+                            <div class="form-section-heading"><span class="form-section-icon">☺</span><div><h3>Propietario o representante</h3><p>Persona responsable de la gestión del equipo ante la liga.</p></div></div>
+                            <div class="grid gap-5 lg:grid-cols-2">
+                                <div class="lg:col-span-2"><label class="form-label">Usuario representante<span class="form-required">*</span></label><select v-model="createForm.league_membership_id" class="form-input" required><option :value="null" disabled>Selecciona un miembro con rol Representante</option><option v-for="representative in representatives" :key="representative.id" :value="representative.id">{{ representative.user.name }} · {{ representative.user.email }}</option></select><FormError :message="createForm.errors.league_membership_id" /></div>
+                                <div><label class="form-label">Fotografía del representante<span class="form-required">*</span></label><div class="file-field"><input class="form-input" type="file" required accept="image/jpeg,image/png,image/webp" @change="createForm.representative_photo = file($event)"><p class="form-field-hint">Imagen clara y reciente.</p></div><FormError :message="createForm.errors.representative_photo" /></div>
+                                <div><label class="form-label">Identificación INE<span class="form-required">*</span></label><div class="file-field"><input class="form-input" type="file" required accept="image/jpeg,image/png,image/webp" @change="createForm.representative_ine = file($event)"><p class="form-field-hint">Archivo privado, visible solo para administración.</p></div><FormError :message="createForm.errors.representative_ine" /></div>
+                            </div>
+                        </section>
+
+                        <section class="form-section">
+                            <div class="form-section-heading"><span class="form-section-icon">✎</span><div><h3>Justificación del registro</h3><p>Describe brevemente el motivo administrativo del alta.</p></div></div>
+                            <label class="form-label">Motivo<span class="form-required">*</span></label><textarea v-model="createForm.reason" class="form-input min-h-24" required maxlength="500" placeholder="Ej. Alta para participar en la temporada vigente"></textarea><FormError :message="createForm.errors.reason" />
+                        </section>
+                    </div>
+
+                    <aside class="registration-aside">
+                        <div class="registration-note"><h3>Antes de enviar</h3><ul><li>Confirma que el nombre y la competencia sean correctos.</li><li>Verifica la identidad del representante.</li><li>Los documentos privados no se muestran en el portal público.</li><li>La participación quedará pendiente de aprobación.</li></ul></div>
+                        <div v-if="!representatives.length || !competitions.length" class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-900">Debes contar con al menos un representante y una competencia disponibles para completar el registro.</div>
+                        <div class="registration-actions"><p class="mb-4 text-xs leading-5 text-slate-600">Al registrar confirmas que la información fue revisada.</p><button class="btn-primary" :disabled="createForm.processing || !representatives.length || !competitions.length"><span v-if="createForm.processing">Registrando…</span><span v-else>Registrar equipo</span></button></div>
+                    </aside>
+                </div>
             </form>
 
             <div v-if="activeTab === 'equipos'" class="mt-7 space-y-5">
-                <div v-if="!teams.length" class="card p-12 text-center text-slate-600">{{ canManage ? 'No hay equipos registrados.' : 'Todavía no tienes un equipo asignado.' }}</div>
-                <article v-for="team in teams" :key="team.id" class="card overflow-hidden">
+                <div class="participants-toolbar lg:grid-cols-[minmax(0,1fr)_14rem]"><div><label class="form-label">Buscar equipo o representante</label><input v-model="teamSearch" class="form-input" type="search" placeholder="Nombre, abreviatura o representante"></div><div><label class="form-label">Estado</label><select v-model="teamStatusFilter" class="form-input"><option value="all">Todos los estados</option><option v-for="(label, value) in labels" :key="value" :value="value">{{ label }}</option></select></div></div>
+                <div v-if="!visibleTeams.length" class="rounded-2xl border border-dashed border-slate-300 bg-white/80 p-12 text-center text-slate-600"><div class="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-league-50 text-2xl text-league-700">♜</div><p class="mt-4 font-bold text-slate-800">{{ teams.length ? 'Ningún equipo coincide con los filtros.' : (canManage ? 'No hay equipos registrados.' : 'Todavía no tienes un equipo asignado.') }}</p></div>
+                <article v-for="team in visibleTeams" :key="team.id" class="entity-card">
                     <div class="grid gap-6 p-6 lg:grid-cols-[110px_1fr_auto]">
-                        <div class="flex h-24 w-24 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50"><img v-if="team.crest_url" :src="team.crest_url" :alt="`Escudo de ${team.name}`" class="h-20 w-20 object-contain"><span v-else class="text-3xl font-bold text-slate-300">{{ team.short_name.slice(0, 3) }}</span></div>
-                        <div><div class="flex flex-wrap items-center gap-3"><h2 class="text-xl font-semibold">{{ team.name }}</h2><span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold">{{ labels[team.status] }}</span></div><p class="mt-2 text-sm text-slate-600">Representante: <strong>{{ team.active_representative?.user.name ?? 'Sin representante' }}</strong></p><p class="mt-1 text-sm text-slate-500">{{ team.email || 'Sin correo' }} · {{ team.phone || 'Sin teléfono' }}</p><div class="mt-3 flex gap-2"><span class="h-5 w-10 rounded border" :style="{ backgroundColor: team.primary_color }"></span><span class="h-5 w-10 rounded border" :style="{ backgroundColor: team.secondary_color }"></span></div></div>
+                        <div class="entity-avatar h-24 w-24"><img v-if="team.crest_url" :src="team.crest_url" :alt="`Escudo de ${team.name}`"><span v-else>{{ initials(team) }}</span></div>
+                        <div><div class="flex flex-wrap items-center gap-3"><h2 class="text-xl font-bold text-slate-900">{{ team.name }}</h2><span class="entity-status" :class="statusClass(team.status)">{{ labels[team.status] }}</span></div><p class="mt-2 text-sm text-slate-600">Representante: <strong>{{ team.active_representative?.user.name ?? 'Sin representante' }}</strong></p><div class="mt-3 flex flex-wrap gap-2"><span class="entity-meta">✉ {{ team.email || 'Sin correo' }}</span><span class="entity-meta">☎ {{ team.phone || 'Sin teléfono' }}</span><span class="entity-meta">▦ {{ team.participations.length }} participaciones</span></div><div class="mt-3 flex gap-1.5"><span class="h-4 w-8 rounded-full border border-slate-200" :style="{ backgroundColor: team.primary_color }"></span><span class="h-4 w-8 rounded-full border border-slate-200" :style="{ backgroundColor: team.secondary_color }"></span></div></div>
                         <div class="flex flex-wrap content-start gap-2"><button class="btn-secondary" @click="startEdit(team)">{{ canManage ? 'Editar' : 'Solicitar cambio' }}</button><template v-if="canManage"><button class="btn-primary" :disabled="!eligibleCompetitions(team).length" @click="participationTeam = team">Nueva participación</button><a :href="`/liga/equipos/${team.id}/representante/photo`" class="btn-secondary">Foto del representante</a><a :href="`/liga/equipos/${team.id}/representante/ine`" class="btn-secondary">INE</a><button class="btn-secondary" @click="representativeTeam = team">Cambiar representante</button></template></div>
                     </div>
                     <div class="border-t border-slate-200 bg-slate-50 p-5"><h3 class="text-sm font-semibold">Participaciones</h3><div class="mt-3 space-y-3"><div v-for="participation in team.participations" :key="participation.id" class="flex flex-col justify-between gap-3 rounded-xl bg-white p-4 sm:flex-row sm:items-center"><div><p class="text-sm font-medium">{{ participation.competition.tournament.season.name }} · {{ participation.competition.name }}</p><p class="mt-1 text-xs text-slate-500">{{ participation.competition.division.name }} · {{ participation.competition.category.name }} · {{ labels[participation.status] }}</p></div><div v-if="canManage" class="flex flex-wrap gap-2"><button v-if="['pending', 'rejected'].includes(participation.status)" class="btn-primary" @click="transition(participation, 'approve', 'Aprobar')">Aprobar</button><button v-if="participation.status === 'pending'" class="btn-danger" @click="transition(participation, 'reject', 'Rechazar')">Rechazar</button><button v-if="participation.status === 'active'" class="btn-danger" @click="transition(participation, 'suspend', 'Suspender')">Suspender</button><button v-if="['suspended', 'inactive'].includes(participation.status)" class="btn-primary" @click="transition(participation, 'reactivate', 'Reactivar')">Reactivar</button><button v-if="['active', 'suspended'].includes(participation.status)" class="btn-secondary" @click="transition(participation, 'deactivate', 'Desactivar')">Desactivar</button></div></div></div></div>

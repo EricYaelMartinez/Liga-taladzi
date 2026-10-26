@@ -17,6 +17,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\GenerateScheduleRequest;
 use App\Http\Requests\AssignMatchRefereesRequest;
 use App\Http\Requests\ProgramMatchRequest;
+use App\Http\Requests\ReopenCancelledMatchRequest;
 use App\Http\Requests\StoreScheduleTimeSlotRequest;
 use App\Http\Requests\StoreMatchdayRequest;
 use App\Http\Requests\StoreScheduledMatchRequest;
@@ -52,7 +53,7 @@ class ScheduleController extends Controller
             ->whereHas('tournament.season', fn ($query) => $query->where('league_id', $league->id))
             ->with([
                 'tournament:id,season_id,name,status', 'tournament.season:id,league_id,name,status', 'division:id,name', 'category:id,name',
-                'teamParticipations' => fn ($query) => $query->where('status', 'active')->with('team:id,name,short_name')->orderBy('registered_name'),
+                'teamParticipations' => fn ($query) => $query->where('status', 'active')->with('team:id,name,short_name,crest_path')->orderBy('registered_name'),
             ])->orderBy('name')->get();
 
         $matchdays = Matchday::query()
@@ -63,7 +64,7 @@ class ScheduleController extends Controller
                 'matches' => fn ($query) => $query
                     ->when(! $canManage, fn ($matches) => $matches->whereNot('status', 'draft'))
                     ->with([
-                        'homeParticipation.team:id,name,short_name', 'awayParticipation.team:id,name,short_name',
+                        'homeParticipation.team:id,name,short_name,crest_path', 'awayParticipation.team:id,name,short_name,crest_path',
                         'field.venue:id,name', 'refereeAssignments.referee.user:id,name',
                     ])->orderByRaw('scheduled_at IS NULL')->orderBy('scheduled_at')->orderBy('id'),
             ])->orderBy('competition_id')->orderBy('number')->get();
@@ -193,6 +194,27 @@ class ScheduleController extends Controller
         $updated = $this->scheduler->assignReferees($match, $roles, $request->string('reason')->toString(), $request->user());
         $this->audit->log($request, 'schedule.match.referees_assigned', $updated, $league, $old, $updated->load('refereeAssignments')->toArray(), $request->string('reason')->toString());
         return back()->with('success', 'Cuerpo arbitral asignado correctamente.');
+    }
+
+    public function reopenCancelled(ReopenCancelledMatchRequest $request, GameMatch $match): RedirectResponse
+    {
+        $league = $this->league($request);
+        $this->assertMatch($match, $league);
+        $this->assertCompetitionMutable($match->competition);
+        $data = [
+            ...$request->safe()->except(['central_referee_id', 'assistant_1_referee_id', 'assistant_2_referee_id', 'fourth_referee_id']),
+            'referees' => [
+                'central' => $request->integer('central_referee_id'),
+                'assistant_1' => $request->filled('assistant_1_referee_id') ? $request->integer('assistant_1_referee_id') : null,
+                'assistant_2' => $request->filled('assistant_2_referee_id') ? $request->integer('assistant_2_referee_id') : null,
+                'fourth' => $request->filled('fourth_referee_id') ? $request->integer('fourth_referee_id') : null,
+            ],
+        ];
+        $old = $match->load('refereeAssignments')->toArray();
+        $updated = $this->scheduler->reopenCancelled($match, $data, $request->user());
+        $this->audit->log($request, 'schedule.match.reopened', $updated, $league, $old, $updated->load('refereeAssignments')->toArray(), $request->string('reason')->toString());
+
+        return back()->with('success', 'Partido reabierto y reprogramado. Se conservaron el encuentro y su historial.');
     }
 
     public function storeTimeSlot(StoreScheduleTimeSlotRequest $request): RedirectResponse

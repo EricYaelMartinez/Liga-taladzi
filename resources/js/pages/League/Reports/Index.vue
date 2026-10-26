@@ -21,6 +21,9 @@ const decisions: Record<string, string> = { pending: 'Pendiente', confirmed: 'Co
 const eventTypes: Record<string, string> = { goal: 'Gol', own_goal: 'Autogol', yellow_card: 'Tarjeta amarilla', second_yellow: 'Segunda amarilla', red_card: 'Tarjeta roja', substitution: 'Sustitución', injury: 'Lesión', incident: 'Incidente' };
 const periods: Record<string, string> = { first_half: 'Primer tiempo', halftime: 'Medio tiempo', second_half: 'Segundo tiempo', extra_time: 'Tiempo extra', penalties: 'Penales', post_match: 'Después del partido', match: 'Partido' };
 const officialRoles: Record<string, string> = { central: 'Árbitro central', assistant_1: 'Asistente 1', assistant_2: 'Asistente 2', fourth: 'Cuarto árbitro' };
+const approvedReports = computed(() => props.matches.data.filter((match) => match.report?.status === 'approved').length);
+const reportsInProcess = computed(() => props.matches.data.filter((match) => match.report && match.report.status !== 'approved').length);
+const pendingReports = computed(() => props.matches.data.filter((match) => !match.report).length);
 
 const derivedScore = computed(() => {
     if (!editing.value) return { home: 0, away: 0 };
@@ -67,33 +70,60 @@ function review(match: Match, action: 'approve' | 'return'): void {
     if (!notes?.trim()) return;
     router.post(`/liga/cedulas/${match.report.id}/revision`, { action, notes }, { preserveScroll: true });
 }
+function reportStatusClass(status: string | undefined): string {
+    if (status === 'approved') return 'match-status-ready';
+    if (status === 'draft') return 'match-status-draft';
+    if (['awaiting_confirmations', 'under_review'].includes(status ?? '')) return 'match-status-review';
+    if (status === 'correction_required') return 'match-status-alert';
+    return 'match-status-neutral';
+}
 </script>
 
 <template>
     <Head title="Cédulas arbitrales" />
     <AppLayout>
-        <section>
-            <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-start"><div><p class="text-sm font-semibold uppercase tracking-[0.18em] text-league-600">Módulo 12</p><h1 class="mt-1 text-3xl font-semibold">Cédulas arbitrales</h1><p class="mt-2 max-w-3xl text-slate-600">Captura los hechos del encuentro, solicita la conformidad de ambos representantes y envía el resultado a revisión administrativa.</p></div><div class="stat-card min-w-40"><span class="stat-label">Partidos visibles</span><span class="stat-value">{{ matches.total }}</span></div></div>
-            <div class="mt-5 rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900"><strong>Flujo:</strong> borrador → conformidad local y visitante → revisión → aprobación. El marcador oficial solo se registra al aprobar la cédula.</div>
-            <div v-if="!matches.data.length" class="card mt-7 p-12 text-center text-slate-600">No hay partidos disponibles para tu rol.</div>
-            <div v-else class="mt-7 space-y-5">
-                <article v-for="match in matches.data" :key="match.id" class="card overflow-hidden">
-                    <header class="flex flex-col justify-between gap-3 border-b border-slate-200 bg-slate-50 p-5 md:flex-row md:items-center"><div><h2 class="font-semibold">{{ match.matchday.name }} · {{ match.competition.name }}</h2><p class="mt-1 text-sm text-slate-500">{{ localDate(match.scheduled_at) }}<span v-if="match.field"> · {{ match.field.venue.name }} / {{ match.field.name }}</span></p></div><span class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700">{{ match.report ? statuses[match.report.status] : 'Sin cédula' }}</span></header>
-                    <div class="p-5">
-                        <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-4 text-center"><div><strong>{{ match.home.name }}</strong><p class="text-xs text-slate-500">Local</p></div><div class="rounded-xl bg-slate-900 px-5 py-3 text-xl font-bold text-white">{{ match.report?.home_score ?? 0 }} – {{ match.report?.away_score ?? 0 }}</div><div><strong>{{ match.away.name }}</strong><p class="text-xs text-slate-500">Visitante</p></div></div>
-                        <div v-if="match.report?.folio" class="mt-4 text-center text-xs font-semibold text-slate-500">Folio {{ match.report.folio }}</div>
-                        <div v-if="match.report?.confirmations.length" class="mt-5 grid gap-3 sm:grid-cols-2"><div v-for="item in match.report.confirmations" :key="item.team" class="rounded-xl border border-slate-200 p-3 text-sm"><div class="flex justify-between gap-2"><strong>{{ item.team }}</strong><span>{{ decisions[item.decision] }}</span></div><p class="mt-1 text-xs text-slate-500">{{ item.representative ?? 'Representante no disponible' }}<span v-if="item.decided_at"> · {{ localDate(item.decided_at) }}</span></p><p v-if="item.notes" class="mt-2 text-xs text-slate-600">{{ item.notes }}</p></div></div>
-                        <p v-if="match.report?.review_notes" class="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900"><strong>Observación:</strong> {{ match.report.review_notes }}</p>
-                        <p v-if="!match.permissions.capture_available && !match.report" class="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">La captura estará disponible cuando llegue la fecha y hora programada del partido.</p>
-                        <div class="mt-5 flex flex-wrap gap-2"><button v-if="match.permissions.view" class="btn-secondary" @click="openViewer(match)">{{ match.permissions.confirm ? 'Revisar antes de confirmar' : 'Ver cédula' }}</button><button v-if="match.permissions.edit" class="btn-secondary" @click="openEditor(match)">{{ match.report ? 'Editar borrador' : 'Capturar cédula' }}</button><button v-if="match.permissions.submit && match.report" class="btn-primary" @click="submit(match)">Enviar a conformidad</button><template v-if="match.permissions.review"><button class="btn-primary" @click="review(match, 'approve')">Aprobar cédula</button><button class="btn-secondary" @click="review(match, 'return')">Devolver para corrección</button></template><a v-if="match.permissions.download && match.report" class="btn-primary" :href="`/liga/cedulas/${match.report.id}.pdf`">Descargar PDF aprobado</a><span v-else-if="match.report?.folio" class="self-center text-xs text-slate-500">El PDF se habilitará después de la aprobación.</span></div>
+        <section class="match-operations-page">
+            <header class="match-operations-hero">
+                <div class="match-operations-hero-content">
+                    <div><p class="text-xs font-black uppercase tracking-[0.2em] text-gold-400">Módulo 12 · Documento oficial</p><h1 class="mt-2 text-3xl font-black sm:text-4xl">Cédulas arbitrales</h1><p class="mt-3 max-w-2xl text-sm leading-6 text-white/80">Registra el resultado, los eventos y las incidencias del encuentro hasta obtener la conformidad y aprobación oficial.</p></div>
+                    <div class="rounded-2xl border border-white/20 bg-white/10 px-5 py-4 backdrop-blur-sm"><span class="text-xs font-bold uppercase tracking-wider text-white/60">Estado documental</span><strong class="mt-1 block text-2xl text-gold-400">Control y trazabilidad</strong></div>
+                </div>
+            </header>
+
+            <div class="match-kpi-grid">
+                <article class="match-kpi"><span class="match-kpi-icon">⚽</span><div><strong>{{ matches.total }}</strong><p>Partidos visibles</p></div></article>
+                <article class="match-kpi"><span class="match-kpi-icon bg-emerald-700">✓</span><div><strong>{{ approvedReports }}</strong><p>Cédulas aprobadas</p></div></article>
+                <article class="match-kpi"><span class="match-kpi-icon bg-sky-700">↻</span><div><strong>{{ reportsInProcess }}</strong><p>En proceso de validación</p></div></article>
+                <article class="match-kpi"><span class="match-kpi-icon bg-slate-600">◷</span><div><strong>{{ pendingReports }}</strong><p>Sin cédula capturada</p></div></article>
+            </div>
+
+            <div class="match-flow-note"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-sky-100 font-black text-sky-800">→</span><p><strong>Flujo oficial:</strong> borrador → conformidad de ambos representantes → revisión administrativa → aprobación. El resultado es oficial y el PDF se habilita solamente al finalizar este proceso.</p></div>
+
+            <div v-if="!matches.data.length" class="match-empty-state"><span class="text-4xl">☑</span><h2 class="mt-4 text-lg font-bold text-slate-900">Sin cédulas disponibles</h2><p class="mt-2 text-sm">No hay partidos disponibles para tu rol.</p></div>
+            <div v-else class="space-y-6">
+                <article v-for="match in matches.data" :key="match.id" class="match-card">
+                    <header class="match-card-header">
+                        <div><div class="flex flex-wrap items-center gap-3"><p class="text-xs font-black uppercase tracking-[0.14em] text-league-700">{{ match.matchday.name }}</p><span class="match-status" :class="reportStatusClass(match.report?.status)">{{ match.report ? statuses[match.report.status] : 'Sin cédula' }}</span></div><h2 class="mt-2 text-xl font-black text-slate-900">{{ match.competition.name }}</h2><div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs font-medium text-slate-600"><span>◷ {{ localDate(match.scheduled_at) }}</span><span v-if="match.field">◉ {{ match.field.venue.name }} · {{ match.field.name }}</span></div></div>
+                        <span v-if="match.report?.folio" class="rounded-xl border border-slate-200 bg-white/70 px-4 py-2 text-xs font-bold text-slate-600">Folio {{ match.report.folio }}</span>
+                    </header>
+
+                    <div class="p-5 sm:p-6">
+                        <div class="match-scoreboard mx-auto max-w-3xl"><div class="match-scoreboard-team"><strong>{{ match.home.name }}</strong><span class="mt-1 block text-[10px] font-bold uppercase tracking-wide text-slate-500">Local</span></div><div class="match-scoreboard-center text-2xl">{{ match.report?.home_score ?? 0 }} <span class="px-1 text-white/50">–</span> {{ match.report?.away_score ?? 0 }}</div><div class="match-scoreboard-team"><strong>{{ match.away.name }}</strong><span class="mt-1 block text-[10px] font-bold uppercase tracking-wide text-slate-500">Visitante</span></div></div>
+
+                        <div v-if="match.report?.confirmations.length" class="mt-6 grid gap-3 sm:grid-cols-2"><div v-for="item in match.report.confirmations" :key="item.team" class="rounded-xl border border-white/80 bg-white/55 p-4 text-sm backdrop-blur-sm"><div class="flex items-center justify-between gap-2"><strong class="text-slate-900">{{ item.team }}</strong><span class="match-status" :class="item.decision === 'confirmed' ? 'match-status-ready' : item.decision === 'rejected' ? 'match-status-alert' : 'match-status-draft'">{{ decisions[item.decision] }}</span></div><p class="mt-2 text-xs text-slate-500">{{ item.representative ?? 'Representante no disponible' }}<span v-if="item.decided_at"> · {{ localDate(item.decided_at) }}</span></p><p v-if="item.notes" class="mt-2 text-xs leading-5 text-slate-600">{{ item.notes }}</p></div></div>
+
+                        <p v-if="match.report?.review_notes" class="mt-5 rounded-xl border border-amber-200 bg-amber-50/90 p-4 text-sm text-amber-900"><strong>Observación de revisión:</strong> {{ match.report.review_notes }}</p>
+                        <p v-if="!match.permissions.capture_available && !match.report" class="mt-5 rounded-xl border border-amber-200 bg-amber-50/90 p-4 text-sm text-amber-900"><strong>Captura bloqueada:</strong> estará disponible cuando llegue la fecha y hora programada del partido.</p>
+
+                        <div class="mt-6 flex flex-wrap items-center gap-2 border-t border-white/80 pt-5"><button v-if="match.permissions.view" class="btn-secondary" @click="openViewer(match)">{{ match.permissions.confirm ? 'Revisar antes de confirmar' : 'Ver cédula' }}</button><button v-if="match.permissions.edit" class="btn-secondary" @click="openEditor(match)">{{ match.report ? 'Editar borrador' : 'Capturar cédula' }}</button><button v-if="match.permissions.submit && match.report" class="btn-primary" @click="submit(match)">Enviar a conformidad</button><template v-if="match.permissions.review"><button class="btn-primary" @click="review(match, 'approve')">Aprobar cédula</button><button class="btn-secondary" @click="review(match, 'return')">Devolver para corrección</button></template><a v-if="match.permissions.download && match.report" class="btn-primary" :href="`/liga/cedulas/${match.report.id}.pdf`">Descargar PDF aprobado</a><span v-else-if="match.report?.folio" class="self-center text-xs font-medium text-slate-500">El PDF se habilitará después de la aprobación.</span></div>
                     </div>
                 </article>
             </div>
-            <nav v-if="matches.links.length > 3" class="mt-6 flex flex-wrap justify-center gap-2"><Link v-for="link in matches.links" :key="link.label" :href="link.url ?? ''" class="rounded-lg border px-3 py-2 text-sm" :class="link.active ? 'border-league-600 bg-league-600 text-white' : 'border-slate-300 bg-white'" v-html="link.label" /></nav>
+            <nav v-if="matches.links.length > 3" class="flex flex-wrap justify-center gap-2"><Link v-for="link in matches.links" :key="link.label" :href="link.url ?? ''" class="rounded-lg border px-3 py-2 text-sm backdrop-blur-sm" :class="link.active ? 'border-league-600 bg-league-600 text-white' : 'border-white/80 bg-white/75 text-slate-700'" v-html="link.label" /></nav>
         </section>
 
         <div v-if="viewing?.report" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4" @click.self="closeViewer">
-            <article class="max-h-[94vh] w-full max-w-6xl overflow-y-auto rounded-2xl bg-white">
+            <article class="match-modal-panel max-h-[94vh] w-full max-w-6xl overflow-y-auto rounded-[1.5rem]">
                 <header class="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white p-5 sm:p-6">
                     <div><p class="text-xs font-semibold uppercase tracking-[0.16em] text-league-600">Vista de solo lectura</p><h2 class="mt-1 text-xl font-semibold">Cédula: {{ viewing.home.name }} vs {{ viewing.away.name }}</h2><p class="mt-1 text-sm text-slate-500">{{ viewing.competition.name }} · {{ viewing.matchday.name }} · Folio {{ viewing.report.folio ?? 'pendiente' }}</p></div>
                     <button type="button" class="text-2xl text-slate-400" aria-label="Cerrar" @click="closeViewer">×</button>
@@ -126,7 +156,7 @@ function review(match: Match, action: 'approve' | 'return'): void {
             </article>
         </div>
 
-        <div v-if="editing" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4" @click.self="closeEditor"><form class="max-h-[94vh] w-full max-w-6xl overflow-y-auto rounded-2xl bg-white p-6" @submit.prevent="save"><div class="flex justify-between gap-4"><div><h2 class="text-xl font-semibold">Cédula: {{ editing.home.name }} vs {{ editing.away.name }}</h2><p class="mt-1 text-sm text-slate-500">Registra todos los hechos antes de enviarla.</p></div><button type="button" class="text-2xl text-slate-400" @click="closeEditor">×</button></div>
+        <div v-if="editing" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4" @click.self="closeEditor"><form class="match-modal-panel max-h-[94vh] w-full max-w-6xl overflow-y-auto rounded-[1.5rem] p-6" @submit.prevent="save"><div class="flex justify-between gap-4"><div><h2 class="text-xl font-semibold">Cédula: {{ editing.home.name }} vs {{ editing.away.name }}</h2><p class="mt-1 text-sm text-slate-500">Registra todos los hechos antes de enviarla.</p></div><button type="button" class="text-2xl text-slate-400" @click="closeEditor">×</button></div>
             <FormError class="mt-4" :message="(form.errors as Record<string, string>).report || (form.errors as Record<string, string>).events" />
             <section class="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <div><h3 class="font-semibold">Alineaciones registradas</h3><p class="mt-1 text-xs text-slate-500">Los jugadores de la alineación enviada se cargan automáticamente en la cédula.</p></div>

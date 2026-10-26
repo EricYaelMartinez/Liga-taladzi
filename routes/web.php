@@ -160,6 +160,7 @@ Route::middleware(['auth', 'active'])->group(function (): void {
                     Route::post('/jornadas/{matchday}/partidos', 'storeMatch')->name('matches.store');
                     Route::post('/partidos/{match}/programar', 'program')->name('matches.program');
                     Route::put('/partidos/{match}/programacion', 'updateSchedule')->name('matches.schedule.update');
+                    Route::put('/partidos/{match}/reprogramar-cancelado', 'reopenCancelled')->name('matches.reopen');
                     Route::put('/partidos/{match}/arbitros', 'assignReferees')->name('matches.referees.assign');
                     Route::post('/jornadas/{matchday}/publicar', 'publish')->name('matchdays.publish');
                     Route::put('/partidos/{match}/estado', 'transition')->name('matches.status');

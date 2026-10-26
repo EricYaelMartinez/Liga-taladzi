@@ -18,6 +18,12 @@
     "validate:module9": "node scripts/validate-module9.mjs",
     "validate:module10": "node scripts/validate-module10.mjs",
     "validate:module10.1": "node scripts/validate-module10-1.mjs",
+    "validate:match-reprogramming": "node scripts/validate-match-reprogramming.mjs",
+    "validate:schedule-design": "node scripts/validate-schedule-design.mjs",
+    "validate:participants-design": "node scripts/validate-participants-design.mjs",
+    "validate:competition-design": "node scripts/validate-competition-design.mjs",
+    "validate:icon-system": "node scripts/validate-icon-system.mjs",
+    "validate:match-operations-design": "node scripts/validate-match-operations-design.mjs",
     "validate:module11": "node scripts/validate-module11.mjs",
     "validate:module12": "node scripts/validate-module12.mjs",
     "validate:module13": "node scripts/validate-module13.mjs",
@@ -30,6 +36,7 @@
     "validate:branding": "node scripts/validate-branding.mjs",
     "validate:login-design": "node scripts/validate-login-design.mjs",
     "validate:public-design": "node scripts/validate-public-design.mjs",
+    "validate:dashboard-design": "node scripts/validate-dashboard-design.mjs",
     "validate:lifecycle": "node scripts/validate-lifecycle-hardening.mjs"
   },
   "dependencies": {
