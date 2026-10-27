@@ -4,9 +4,10 @@ import AppIcon from '../components/AppIcon.vue';
 import type { AppPageProps } from '../types';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import type { CSSProperties } from 'vue';
 
 type DashboardSummary = { pendingTasks: number; upcomingMatches: number; notifications: number; activeTeams: number };
-type UpcomingMatch = { id: number; competition: string | null; matchday: string; homeTeam: string; awayTeam: string; scheduledAt: string | null; field: string };
+type UpcomingMatch = { id: number; competition: string | null; matchday: string; homeTeam: string; awayTeam: string; homeCrestUrl: string | null; awayCrestUrl: string | null; scheduledAt: string | null; field: string };
 type ActivityEntry = { id: number; action: string; actor: string; createdAt: string | null };
 
 const props = defineProps<{ summary: DashboardSummary; upcomingMatches: UpcomingMatch[]; recentActivity: ActivityEntry[] }>();
@@ -23,6 +24,15 @@ const quickActions = computed(() => [
     { label: 'Publicar avisos', description: 'Informa a los participantes', href: '/liga/avisos', icon: 'bell', show: can('notifications.manage') },
     { label: 'Consultar estadísticas', description: 'Resultados y posiciones', href: '/liga/resultados', icon: 'chart', show: can('statistics.view') },
 ].filter((action) => action.show).slice(0, 4));
+
+// Los colores se heredan de la liga activa mediante AppLayout.
+const quickActionStyle = (index: number): CSSProperties => ({
+    '--quick-primary': 'var(--color-league-600)',
+    '--quick-secondary': 'var(--color-gold-500)',
+    '--quick-background': index % 2 === 0
+        ? 'color-mix(in srgb, var(--color-league-600) 8%, white)'
+        : 'color-mix(in srgb, var(--color-gold-500) 9%, white)',
+} as CSSProperties);
 
 const actionLabels: Record<string, string> = {
     'team.created': 'Se registró un equipo',
@@ -122,9 +132,18 @@ const progress = (value: number, maximum: number) => `${Math.min(100, Math.round
         <section v-if="context && quickActions.length" class="mt-8">
             <div class="mb-4"><p class="section-eyebrow">Atajos</p><h2 class="section-title">Accesos rápidos</h2></div>
             <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <Link v-for="action in quickActions" :key="action.label" :href="action.href" class="group flex items-center gap-4 rounded-2xl border border-white/80 bg-white/95 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-gold-400 hover:shadow-lg">
-                    <AppIcon :name="action.icon" variant="illustrated" :size="48" class="transition duration-200 group-hover:scale-105" />
-                    <span><strong class="block text-sm text-slate-900">{{ action.label }}</strong><small class="mt-0.5 block text-xs text-slate-500">{{ action.description }}</small></span>
+                <Link v-for="(action, index) in quickActions" :key="action.label" :href="action.href"
+                    class="quick-action-tile group" :style="quickActionStyle(index)">
+                    <span class="quick-action-icon" aria-hidden="true">
+                        <AppIcon :name="action.icon" variant="illustrated" :size="40" class="transition-transform duration-200 group-hover:scale-110" />
+                    </span>
+                    <span class="quick-action-content">
+                        <strong class="quick-action-name">{{ action.label }}</strong>
+                        <small class="quick-action-description">{{ action.description }}</small>
+                    </span>
+                    <span class="quick-action-art" aria-hidden="true">
+                        <AppIcon :name="action.icon" variant="illustrated" :size="64" class="transition-transform duration-300 group-hover:scale-110" />
+                    </span>
                 </Link>
             </div>
         </section>
@@ -138,7 +157,26 @@ const progress = (value: number, maximum: number) => `${Math.min(100, Math.round
                 <div v-if="props.upcomingMatches.length" class="divide-y divide-slate-100">
                     <div v-for="match in props.upcomingMatches" :key="match.id" class="grid gap-4 px-5 py-4 transition hover:bg-slate-50/80 sm:grid-cols-[8rem_1fr_auto] sm:items-center sm:px-6">
                         <div><p class="text-xs font-bold uppercase tracking-wide text-league-700">{{ formatDate(match.scheduledAt, { weekday: 'short', day: 'numeric', month: 'short' }) }}</p><p class="mt-1 text-lg font-bold text-slate-900">{{ formatDate(match.scheduledAt, { hour: '2-digit', minute: '2-digit', hour12: true }) }}</p></div>
-                        <div><p class="font-semibold text-slate-900">{{ match.homeTeam }} <span class="px-1 text-xs font-normal text-slate-400">VS</span> {{ match.awayTeam }}</p><p class="mt-1 text-xs text-slate-500">{{ match.matchday }} · {{ match.competition ?? 'Competencia' }}</p></div>
+                        <div class="min-w-0">
+                            <div class="flex flex-wrap items-center gap-3 sm:gap-4">
+                                <div class="flex min-w-0 flex-1 items-center gap-2.5">
+                                    <div class="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+                                        <img v-if="match.homeCrestUrl" :src="match.homeCrestUrl" :alt="`Escudo de ${match.homeTeam}`" class="h-full w-full object-contain" loading="lazy" />
+                                        <AppIcon v-else name="football" :size="25" class="text-slate-400" />
+                                    </div>
+                                    <span class="min-w-0 text-sm font-bold leading-tight text-slate-900">{{ match.homeTeam }}</span>
+                                </div>
+                                <span class="shrink-0 rounded-full bg-gold-100 px-2.5 py-1 text-xs font-extrabold text-league-800">VS</span>
+                                <div class="flex min-w-0 flex-1 items-center justify-end gap-2.5">
+                                    <span class="min-w-0 text-right text-sm font-bold leading-tight text-slate-900">{{ match.awayTeam }}</span>
+                                    <div class="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+                                        <img v-if="match.awayCrestUrl" :src="match.awayCrestUrl" :alt="`Escudo de ${match.awayTeam}`" class="h-full w-full object-contain" loading="lazy" />
+                                        <AppIcon v-else name="football" :size="25" class="text-slate-400" />
+                                    </div>
+                                </div>
+                            </div>
+                            <p class="mt-2 text-xs text-slate-500">{{ match.matchday }} · {{ match.competition ?? 'Competencia' }}</p>
+                        </div>
                         <span class="w-fit rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600">{{ match.field }}</span>
                     </div>
                 </div>
@@ -179,4 +217,69 @@ const progress = (value: number, maximum: number) => `${Math.min(100, Math.round
 .dashboard-panel { @apply overflow-hidden rounded-2xl border border-white/80 bg-white/95 shadow-md shadow-slate-900/5 backdrop-blur; }
 .section-eyebrow { @apply text-[10px] font-bold uppercase tracking-[0.2em] text-gold-500; }
 .section-title { @apply mt-1 text-xl font-bold text-slate-900; }
+
+/* Accesos rápidos: tarjetas compactas inspiradas en la referencia, con colores de la liga activa. */
+.quick-action-tile {
+    position: relative;
+    display: flex;
+    min-height: 94px;
+    align-items: center;
+    gap: 12px;
+    overflow: hidden;
+    isolation: isolate;
+    padding: 14px 78px 14px 14px;
+    border: 1px solid color-mix(in srgb, var(--quick-primary) 16%, white);
+    border-radius: 17px;
+    background: linear-gradient(110deg, #fff 0%, #fff 58%, var(--quick-background) 100%);
+    box-shadow: 0 8px 22px rgba(16, 27, 48, .10);
+    transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+}
+.quick-action-tile::after {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    inset: 0 0 0 auto;
+    width: 30%;
+    background: linear-gradient(145deg, var(--quick-primary), var(--quick-secondary));
+    clip-path: polygon(36% 0, 100% 0, 100% 100%, 0 100%);
+    opacity: .94;
+}
+.quick-action-tile:hover,
+.quick-action-tile:focus-visible {
+    transform: translateY(-3px);
+    border-color: var(--quick-secondary);
+    box-shadow: 0 14px 28px color-mix(in srgb, var(--quick-primary) 21%, transparent);
+}
+.quick-action-tile:focus-visible { outline: 3px solid var(--quick-secondary); outline-offset: 3px; }
+.quick-action-icon {
+    display: grid;
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+    place-items: center;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--quick-primary) 10%, white);
+}
+.quick-action-content { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 3px; }
+.quick-action-name { color: #16243d; font-size: 13px; font-weight: 800; line-height: 1.25; }
+.quick-action-description { color: #53617a; font-size: 11px; line-height: 1.35; }
+.quick-action-art {
+    position: absolute;
+    right: 7px;
+    top: 50%;
+    display: grid;
+    height: 72px;
+    width: 72px;
+    place-items: center;
+    transform: translateY(-50%);
+    filter: drop-shadow(0 4px 5px rgba(0, 0, 0, .14));
+}
+@media (max-width: 420px) {
+    .quick-action-tile { padding-right: 70px; }
+    .quick-action-art { right: 1px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .quick-action-tile { transition: none; }
+    .quick-action-tile:hover { transform: none; }
+}
 </style>

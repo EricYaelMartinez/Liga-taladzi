@@ -17,6 +17,7 @@ use App\Domain\Team\Models\Team;
 use App\Domain\Team\Models\TeamParticipation;
 use App\Support\LeagueContext;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -94,7 +95,9 @@ class DashboardController extends Controller
                         'competition' => $match->competition?->name,
                         'matchday' => $match->matchday?->name ?: ($match->matchday ? 'Jornada '.$match->matchday->number : 'Por definir'),
                         'homeTeam' => $match->homeParticipation?->team?->name ?? $match->homeParticipation?->registered_name ?? 'Local',
+                        'homeCrestUrl' => $match->homeParticipation?->team?->crest_path ? Storage::disk('public')->url($match->homeParticipation->team->crest_path) : null,
                         'awayTeam' => $match->awayParticipation?->team?->name ?? $match->awayParticipation?->registered_name ?? 'Visitante',
+                        'awayCrestUrl' => $match->awayParticipation?->team?->crest_path ? Storage::disk('public')->url($match->awayParticipation->team->crest_path) : null,
                         'scheduledAt' => $match->scheduled_at?->toIso8601String(),
                         'field' => $match->field?->name ?? 'Campo por definir',
                     ]);
