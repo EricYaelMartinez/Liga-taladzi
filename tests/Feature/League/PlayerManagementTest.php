@@ -141,6 +141,36 @@ class PlayerManagementTest extends TestCase
         $this->assertDatabaseHas('player_movements', ['player_id' => $registration->player_id, 'type' => 'released']);
     }
 
+    public function test_released_player_can_register_again_for_same_participation_and_preserve_history(): void
+    {
+        [$administrator, , $league, $participation] = $this->scenario();
+        $player = $this->player($league, 'Jugador Reincorporado');
+        $oldRegistration = $this->registration($player, $participation, 'released', 9);
+
+        $session = $this->leagueSession($league, $this->adminRole);
+        $this->actingAs($administrator)->withSession($session)
+            ->post("/liga/jugadores/{$player->id}/plantillas", [
+                'team_participation_id' => $participation->id,
+                'jersey_number' => 9,
+                'reason' => 'Reincorporación autorizada',
+            ])
+            ->assertSessionHasNoErrors();
+
+        $registrations = PlayerRegistration::where('player_id', $player->id)
+            ->where('team_participation_id', $participation->id)->orderBy('id')->get();
+        $this->assertCount(2, $registrations);
+        $this->assertSame($oldRegistration->id, $registrations[0]->id);
+        $this->assertSame('released', $registrations[0]->status->value);
+        $this->assertSame('pending', $registrations[1]->status->value);
+
+        $this->actingAs($administrator)->withSession($session)
+            ->post("/liga/jugadores/{$player->id}/plantillas", [
+                'team_participation_id' => $participation->id,
+                'jersey_number' => 9,
+                'reason' => 'Intento duplicado',
+            ])->assertSessionHasErrors('jersey_number');
+    }
+
     public function test_representative_cannot_register_player_for_another_team(): void
     {
         [$administrator, $representative, $league, $participation] = $this->scenario();
