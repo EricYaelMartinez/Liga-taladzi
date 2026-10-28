@@ -601,3 +601,23 @@
     .competition-card footer { @apply bg-slate-50 px-5 py-3.5; }
     .competition-card footer span { @apply flex items-center gap-2 text-[11px] font-semibold text-slate-600; }
 }
+
+
+/* ProLiga | Encabezados institucionales: fotografía de estadio + veladura de liga.
+   Debe permanecer después de las declaraciones específicas de cada módulo. */
+:where(.dashboard-hero, .participants-hero, .competition-hero, .match-operations-hero, .schedule-hero) {
+    background-image:
+        linear-gradient(108deg,
+            color-mix(in srgb, var(--color-league-900, #1b2a4a) 84%, transparent) 0%,
+            color-mix(in srgb, var(--color-league-600, #275eaa) 73%, transparent) 55%,
+            color-mix(in srgb, var(--color-league-900, #1b2a4a) 77%, transparent) 100%),
+        url('/images/public/league-stadium.jpg') !important;
+    background-size: cover !important;
+    background-position: center 55% !important;
+    background-repeat: no-repeat !important;
+    border-radius: 1.5rem;
+}
+:where(.dashboard-hero, .participants-hero, .competition-hero, .match-operations-hero, .schedule-hero) h1 {
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,.15);
+}

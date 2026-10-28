@@ -150,8 +150,8 @@ function seasonYear(value: string | null): string {
                         <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-200 sm:text-base">Construye la estructura competitiva de la liga, controla sus ciclos y conserva reglas históricas confiables.</p>
                     </div>
                     <div class="competition-hero-summary">
-                        <span><strong>{{ activeSeasons }}</strong> temporadas vigentes</span>
-                        <span><strong>{{ activeCompetitions }}</strong> competencias activas</span>
+                        <span><AppIcon name="calendar" :size="20" /><strong>{{ activeSeasons }}</strong><small>temporadas vigentes</small></span>
+                        <span><AppIcon name="trophy" :size="20" /><strong>{{ activeCompetitions }}</strong><small>competencias activas</small></span>
                     </div>
                 </div>
             </header>
@@ -162,8 +162,8 @@ function seasonYear(value: string | null): string {
             </div>
 
             <nav class="competition-tabs" aria-label="Secciones de competencias">
-                <button v-for="tab in tabs" :key="tab.id" type="button" class="competition-tab" :class="{ 'competition-tab-active': activeTab === tab.id }" @click="activeTab = tab.id">
-                    <span class="competition-tab-icon"><AppIcon :name="tab.icon" variant="illustrated" :size="30" /></span><span>{{ tab.label }}</span>
+                <button v-for="tab in tabs" :key="tab.id" type="button" class="competition-tab" :class="{ 'competition-tab-active': activeTab === tab.id }" :aria-current="activeTab === tab.id ? 'page' : undefined" @click="activeTab = tab.id">
+                    <span class="competition-tab-icon"><AppIcon :name="tab.icon" :size="21" :stroke-width="2.2" /></span><span>{{ tab.label }}</span>
                 </button>
             </nav>
 
@@ -206,14 +206,179 @@ function seasonYear(value: string | null): string {
             </div>
 
             <div v-if="activeTab === 'reglamentos'" class="mt-6 grid gap-6 xl:grid-cols-[1.1fr_.9fr]">
-                <section class="competition-panel overflow-hidden"><div class="competition-panel-heading"><span><AppIcon name="file" /></span><div><p>{{ editingRegulationId ? 'Edición segura' : 'Nueva versión' }}</p><h2>{{ editingRegulationId ? 'Editar borrador' : 'Crear reglamento' }}</h2></div></div><form class="space-y-6 p-5 sm:p-7" @submit.prevent="submitRegulation"><div><label class="form-label">Nombre del reglamento</label><input v-model="regulationForm.name" class="form-input" required><FormError :message="regulationForm.errors.name" /></div><fieldset class="form-block"><legend>Sistema de puntuación</legend><p>Define los puntos asignados según el resultado del partido.</p><div class="mt-4 grid gap-4 sm:grid-cols-3"><div><label class="form-label">Victoria</label><input v-model.number="regulationForm.points_win" class="form-input" type="number" min="-20" max="20" required></div><div><label class="form-label">Empate</label><input v-model.number="regulationForm.points_draw" class="form-input" type="number" min="-20" max="20" required></div><div><label class="form-label">Derrota</label><input v-model.number="regulationForm.points_loss" class="form-input" type="number" min="-20" max="20" required></div></div></fieldset><fieldset class="form-block"><legend>Incomparecencia y juego limpio</legend><p>Establece el marcador administrativo y la penalización disciplinaria.</p><div class="mt-4 grid gap-4 sm:grid-cols-2"><div><label class="form-label">Goles local</label><input v-model.number="regulationForm.walkover_home_goals" class="form-input" type="number" min="0" max="99" required></div><div><label class="form-label">Goles visitante</label><input v-model.number="regulationForm.walkover_away_goals" class="form-input" type="number" min="0" max="99" required></div></div><div class="mt-4 grid gap-4 sm:grid-cols-3"><div><label class="form-label">Amarilla</label><input v-model.number="regulationForm.fair_play_yellow_points" class="form-input" type="number" min="0" max="20" required></div><div><label class="form-label">Doble amarilla</label><input v-model.number="regulationForm.fair_play_second_yellow_points" class="form-input" type="number" min="0" max="20" required></div><div><label class="form-label">Roja directa</label><input v-model.number="regulationForm.fair_play_red_points" class="form-input" type="number" min="0" max="20" required></div></div></fieldset><fieldset class="form-block"><legend>Criterios de desempate</legend><p>Ordena la prioridad con los controles laterales.</p><div class="mt-4 space-y-2"><div v-for="(criterion, index) in regulationForm.tiebreakers" :key="criterion" class="tiebreaker-row"><span>{{ index + 1 }}</span><strong>{{ labels[criterion] }}</strong><div><button type="button" :disabled="index === 0" @click="moveCriterion(index, -1)" aria-label="Subir criterio">↑</button><button type="button" :disabled="index === regulationForm.tiebreakers.length - 1" @click="moveCriterion(index, 1)" aria-label="Bajar criterio">↓</button></div></div></div><FormError :message="regulationForm.errors.tiebreakers" /></fieldset><div class="flex flex-wrap gap-3"><button class="btn-primary" :disabled="regulationForm.processing || !hasOperationalSettings"><AppIcon name="check" :size="16" /> {{ editingRegulationId ? 'Guardar borrador' : 'Crear borrador' }}</button><button v-if="editingRegulationId" type="button" class="btn-secondary" @click="editingRegulationId = null; regulationForm.reset()">Cancelar edición</button></div></form></section>
+                <section class="competition-panel regulation-create-panel overflow-hidden"><div class="competition-panel-heading"><span><AppIcon name="file" /></span><div><p>{{ editingRegulationId ? 'Edición segura' : 'Nueva versión' }}</p><h2>{{ editingRegulationId ? 'Editar borrador' : 'Crear reglamento' }}</h2></div></div><form class="space-y-6 p-5 sm:p-7" @submit.prevent="submitRegulation"><div><label class="form-label">Nombre del reglamento</label><input v-model="regulationForm.name" class="form-input" required><FormError :message="regulationForm.errors.name" /></div><fieldset class="form-block"><legend>Sistema de puntuación</legend><p>Define los puntos asignados según el resultado del partido.</p><div class="mt-4 grid gap-4 sm:grid-cols-3"><div><label class="form-label">Victoria</label><input v-model.number="regulationForm.points_win" class="form-input" type="number" min="-20" max="20" required></div><div><label class="form-label">Empate</label><input v-model.number="regulationForm.points_draw" class="form-input" type="number" min="-20" max="20" required></div><div><label class="form-label">Derrota</label><input v-model.number="regulationForm.points_loss" class="form-input" type="number" min="-20" max="20" required></div></div></fieldset><fieldset class="form-block"><legend>Incomparecencia y juego limpio</legend><p>Establece el marcador administrativo y la penalización disciplinaria.</p><div class="mt-4 grid gap-4 sm:grid-cols-2"><div><label class="form-label">Goles local</label><input v-model.number="regulationForm.walkover_home_goals" class="form-input" type="number" min="0" max="99" required></div><div><label class="form-label">Goles visitante</label><input v-model.number="regulationForm.walkover_away_goals" class="form-input" type="number" min="0" max="99" required></div></div><div class="mt-4 grid gap-4 sm:grid-cols-3"><div><label class="form-label">Amarilla</label><input v-model.number="regulationForm.fair_play_yellow_points" class="form-input" type="number" min="0" max="20" required></div><div><label class="form-label">Doble amarilla</label><input v-model.number="regulationForm.fair_play_second_yellow_points" class="form-input" type="number" min="0" max="20" required></div><div><label class="form-label">Roja directa</label><input v-model.number="regulationForm.fair_play_red_points" class="form-input" type="number" min="0" max="20" required></div></div></fieldset><fieldset class="form-block"><legend>Criterios de desempate</legend><p>Ordena la prioridad con los controles laterales.</p><div class="mt-4 space-y-2"><div v-for="(criterion, index) in regulationForm.tiebreakers" :key="criterion" class="tiebreaker-row"><span>{{ index + 1 }}</span><strong>{{ labels[criterion] }}</strong><div><button type="button" :disabled="index === 0" @click="moveCriterion(index, -1)" aria-label="Subir criterio">↑</button><button type="button" :disabled="index === regulationForm.tiebreakers.length - 1" @click="moveCriterion(index, 1)" aria-label="Bajar criterio">↓</button></div></div></div><FormError :message="regulationForm.errors.tiebreakers" /></fieldset><div class="flex flex-wrap gap-3"><button class="btn-primary" :disabled="regulationForm.processing || !hasOperationalSettings"><AppIcon name="check" :size="16" /> {{ editingRegulationId ? 'Guardar borrador' : 'Crear borrador' }}</button><button v-if="editingRegulationId" type="button" class="btn-secondary" @click="editingRegulationId = null; regulationForm.reset()">Cancelar edición</button></div></form></section>
                 <section class="space-y-4"><div class="mb-5"><p class="section-kicker">Versiones disponibles</p><h2 class="text-2xl font-bold">Reglamentos de la liga</h2><p class="mt-1 text-sm text-slate-500">Los reglamentos publicados quedan protegidos para conservar el historial.</p></div><article v-for="regulation in regulations" :key="regulation.id" class="regulation-card"><div class="flex items-start gap-4"><span class="regulation-icon"><AppIcon name="shield" variant="illustrated" :size="46" /></span><div class="min-w-0 flex-1"><div class="flex flex-wrap items-start justify-between gap-2"><div><h3>{{ regulation.name }}</h3><p>Versión {{ regulation.version }}</p></div><span :class="statusClass(regulation.status)">{{ labels[regulation.status] }}</span></div><div class="regulation-score"><span><small>Victoria</small><strong>{{ regulation.points_win }}</strong></span><span><small>Empate</small><strong>{{ regulation.points_draw }}</strong></span><span><small>Derrota</small><strong>{{ regulation.points_loss }}</strong></span><span><small>Incomparecencia</small><strong>{{ regulation.walkover_home_goals }}–{{ regulation.walkover_away_goals }}</strong></span></div><div class="mt-4"><small class="font-bold uppercase tracking-wider text-slate-400">Prioridad de desempate</small><div class="mt-2 flex flex-wrap gap-1.5"><span v-for="(item, index) in regulation.tiebreakers" :key="item.criterion" class="criterion-chip">{{ index + 1 }} · {{ labels[item.criterion] }}</span></div></div><div v-if="regulation.status === 'draft'" class="mt-5 flex gap-2"><button class="btn-secondary" @click="editRegulation(regulation)"><AppIcon name="edit" :size="16" /> Editar</button><button class="btn-primary" @click="publishRegulation(regulation)"><AppIcon name="check" :size="16" /> Publicar</button></div><p v-else class="protected-note"><AppIcon name="lock" :size="15" /> Contenido protegido. Crea una nueva versión para modificarlo.</p></div></div></article><div v-if="!regulations.length" class="competition-panel empty-state">Aún no hay reglamentos.</div></section>
             </div>
 
             <div v-if="activeTab === 'competencias'" class="mt-6 space-y-6">
-                <section class="competition-panel overflow-hidden"><div class="competition-panel-heading"><span><AppIcon name="trophy" /></span><div><p>Estructura competitiva</p><h2>Nueva competencia</h2></div></div><form class="grid gap-6 p-5 sm:p-7 xl:grid-cols-3" @submit.prevent="submitCompetition"><div class="form-block xl:col-span-2"><h3>Identidad y clasificación</h3><div class="mt-4 grid gap-4 sm:grid-cols-2"><div class="sm:col-span-2"><label class="form-label">Nombre</label><input v-model="competitionForm.name" class="form-input" required placeholder="Primera fuerza · Libre"><FormError :message="competitionForm.errors.name" /></div><div><label class="form-label">Torneo</label><select v-model="competitionForm.tournament_id" class="form-input" required><option :value="null" disabled>Selecciona</option><option v-for="tournament in availableTournaments" :key="tournament.id" :value="tournament.id">{{ tournament.season.name }} · {{ tournament.name }}</option></select></div><div><label class="form-label">Formato</label><select v-model="competitionForm.format" class="form-input"><option value="round_robin">Todos contra todos</option><option value="double_round_robin">Ida y vuelta</option><option value="knockout">Eliminación directa</option><option value="groups_knockout">Grupos + eliminatoria</option><option value="manual">Manual</option></select></div><div><label class="form-label">División</label><select v-model="competitionForm.division_id" class="form-input" required><option :value="null" disabled>Selecciona</option><option v-for="division in divisions" :key="division.id" :value="division.id">{{ division.name }}</option></select><FormError :message="competitionForm.errors.division_id" /></div><div><label class="form-label">Categoría</label><select v-model="competitionForm.category_id" class="form-input" required><option :value="null" disabled>Selecciona</option><option v-for="category in categories" :key="category.id" :value="category.id">{{ category.name }}</option></select></div><div class="sm:col-span-2"><label class="form-label">Reglamento publicado</label><select v-model="competitionForm.regulation_id" class="form-input" required><option :value="null" disabled>Selecciona</option><option v-for="regulation in usableRegulations" :key="regulation.id" :value="regulation.id">{{ regulation.name }} v{{ regulation.version }}</option></select><FormError :message="competitionForm.errors.regulation_id" /></div></div></div><div class="space-y-6"><div class="form-block"><h3>Formato de juego</h3><div class="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-1"><div><label class="form-label">Vueltas de fase regular</label><input v-model.number="competitionForm.regular_leg_count" class="form-input" type="number" min="1" max="4" required></div><div><label class="form-label">Partidos por eliminatoria</label><input v-model.number="competitionForm.knockout_leg_count" class="form-input" type="number" min="1" max="2" required></div></div></div></div><div class="form-block"><h3>Cupos y plantillas</h3><div class="mt-4 grid gap-4 sm:grid-cols-2"><div><label class="form-label">Mínimo de equipos</label><input v-model.number="competitionForm.minimum_teams" class="form-input" type="number" min="2" max="200" placeholder="Opcional"></div><div><label class="form-label">Máximo de equipos</label><input v-model.number="competitionForm.maximum_teams" class="form-input" type="number" min="2" max="200" placeholder="Opcional"><FormError :message="competitionForm.errors.maximum_teams" /></div><div><label class="form-label">Mínimo de jugadores</label><input v-model.number="competitionForm.minimum_roster_size" class="form-input" type="number" min="1" max="100" required></div><div><label class="form-label">Máximo de jugadores</label><input v-model.number="competitionForm.maximum_roster_size" class="form-input" type="number" min="1" max="100" required><FormError :message="competitionForm.errors.maximum_roster_size" /></div></div></div><div class="form-block"><h3>Periodo de registro</h3><div class="mt-4 grid gap-4 sm:grid-cols-2"><div><label class="form-label">Apertura</label><input v-model="competitionForm.registration_starts_at" class="form-input" type="datetime-local"></div><div><label class="form-label">Cierre</label><input v-model="competitionForm.registration_ends_at" class="form-input" type="datetime-local"><FormError :message="competitionForm.errors.registration_ends_at" /></div></div></div><div class="flex items-center justify-end xl:col-span-3"><button class="btn-primary min-w-48" :disabled="competitionForm.processing || !availableTournaments.length || !divisions.length || !categories.length || !usableRegulations.length"><AppIcon name="check" :size="16" /> Crear competencia</button></div></form></section>
+                <section class="competition-panel competition-create-panel overflow-hidden"><div class="competition-panel-heading"><span><AppIcon name="trophy" /></span><div><p>Nueva competencia</p><h2>Crear competencia</h2><small>Configura su identidad, formato deportivo, participantes y calendario.</small></div></div><form class="grid gap-6 p-5 sm:p-7 xl:grid-cols-3" @submit.prevent="submitCompetition"><div class="form-block xl:col-span-2"><h3>Identidad y clasificación</h3><div class="mt-4 grid gap-4 sm:grid-cols-2"><div class="sm:col-span-2"><label class="form-label">Nombre</label><input v-model="competitionForm.name" class="form-input" required placeholder="Primera fuerza · Libre"><FormError :message="competitionForm.errors.name" /></div><div><label class="form-label">Torneo</label><select v-model="competitionForm.tournament_id" class="form-input" required><option :value="null" disabled>Selecciona</option><option v-for="tournament in availableTournaments" :key="tournament.id" :value="tournament.id">{{ tournament.season.name }} · {{ tournament.name }}</option></select></div><div><label class="form-label">Formato</label><select v-model="competitionForm.format" class="form-input"><option value="round_robin">Todos contra todos</option><option value="double_round_robin">Ida y vuelta</option><option value="knockout">Eliminación directa</option><option value="groups_knockout">Grupos + eliminatoria</option><option value="manual">Manual</option></select></div><div><label class="form-label">División</label><select v-model="competitionForm.division_id" class="form-input" required><option :value="null" disabled>Selecciona</option><option v-for="division in divisions" :key="division.id" :value="division.id">{{ division.name }}</option></select><FormError :message="competitionForm.errors.division_id" /></div><div><label class="form-label">Categoría</label><select v-model="competitionForm.category_id" class="form-input" required><option :value="null" disabled>Selecciona</option><option v-for="category in categories" :key="category.id" :value="category.id">{{ category.name }}</option></select></div><div class="sm:col-span-2"><label class="form-label">Reglamento publicado</label><select v-model="competitionForm.regulation_id" class="form-input" required><option :value="null" disabled>Selecciona</option><option v-for="regulation in usableRegulations" :key="regulation.id" :value="regulation.id">{{ regulation.name }} v{{ regulation.version }}</option></select><FormError :message="competitionForm.errors.regulation_id" /></div></div></div><div class="space-y-6"><div class="form-block"><h3>Formato de juego</h3><div class="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-1"><div><label class="form-label">Vueltas de fase regular</label><input v-model.number="competitionForm.regular_leg_count" class="form-input" type="number" min="1" max="4" required></div><div><label class="form-label">Partidos por eliminatoria</label><input v-model.number="competitionForm.knockout_leg_count" class="form-input" type="number" min="1" max="2" required></div></div></div></div><div class="form-block"><h3>Cupos y plantillas</h3><div class="mt-4 grid gap-4 sm:grid-cols-2"><div><label class="form-label">Mínimo de equipos</label><input v-model.number="competitionForm.minimum_teams" class="form-input" type="number" min="2" max="200" placeholder="Opcional"></div><div><label class="form-label">Máximo de equipos</label><input v-model.number="competitionForm.maximum_teams" class="form-input" type="number" min="2" max="200" placeholder="Opcional"><FormError :message="competitionForm.errors.maximum_teams" /></div><div><label class="form-label">Mínimo de jugadores</label><input v-model.number="competitionForm.minimum_roster_size" class="form-input" type="number" min="1" max="100" required></div><div><label class="form-label">Máximo de jugadores</label><input v-model.number="competitionForm.maximum_roster_size" class="form-input" type="number" min="1" max="100" required><FormError :message="competitionForm.errors.maximum_roster_size" /></div></div></div><div class="form-block"><h3>Periodo de registro</h3><div class="mt-4 grid gap-4 sm:grid-cols-2"><div><label class="form-label">Apertura</label><input v-model="competitionForm.registration_starts_at" class="form-input" type="datetime-local"></div><div><label class="form-label">Cierre</label><input v-model="competitionForm.registration_ends_at" class="form-input" type="datetime-local"><FormError :message="competitionForm.errors.registration_ends_at" /></div></div></div><div class="flex items-center justify-end xl:col-span-3"><button class="btn-primary min-w-48" :disabled="competitionForm.processing || !availableTournaments.length || !divisions.length || !categories.length || !usableRegulations.length"><AppIcon name="check" :size="16" /> Crear competencia</button></div></form></section>
                 <section><div class="competition-toolbar"><div class="relative"><AppIcon name="chart" :size="17" class="absolute left-3.5 top-3 text-slate-400" /><input v-model="competitionSearch" class="form-input pl-10" placeholder="Buscar competencia, torneo o división"></div><select v-model="competitionStatus" class="form-input"><option value="all">Todos los estados</option><option value="planning">Planeación</option><option value="registration">Inscripciones</option><option value="active">Activas</option><option value="finished">Finalizadas</option><option value="archived">Archivadas</option><option value="cancelled">Canceladas</option></select><span>{{ visibleCompetitions.length }} resultado(s)</span></div><div class="mt-4 grid gap-5 lg:grid-cols-2"><article v-for="competition in visibleCompetitions" :key="competition.id" class="competition-card"><header><div class="competition-card-icon"><AppIcon name="trophy" variant="illustrated" :size="46" /></div><div class="min-w-0 flex-1"><div class="flex flex-wrap items-start justify-between gap-2"><div><h3>{{ competition.name }}</h3><p>{{ competition.tournament.season.name }} · {{ competition.tournament.name }}</p></div><span :class="statusClass(competition.status)">{{ labels[competition.status] }}</span></div></div></header><dl><div><dt>División</dt><dd>{{ competition.division.name }}</dd></div><div><dt>Categoría</dt><dd>{{ competition.category.name }}</dd></div><div><dt>Formato</dt><dd>{{ labels[competition.format] }}</dd></div><div><dt>Plantilla</dt><dd>{{ competition.minimum_roster_size }}–{{ competition.maximum_roster_size }} jugadores</dd></div></dl><footer><span><AppIcon name="shield" :size="16" /> {{ competition.regulation.name }} · v{{ competition.regulation.version }}</span></footer></article><div v-if="!visibleCompetitions.length" class="competition-panel empty-state lg:col-span-2">No hay competencias que coincidan con los filtros.</div></div></section>
             </div>
         </section>
     </AppLayout>
 </template>
+
+<style scoped>
+@reference "../../../../css/app.css";
+
+/* Ajustes exclusivos del módulo: no alteran otras pantallas ni la lógica de Inertia. */
+.competition-page { max-width: 1440px; margin-inline: auto; padding-bottom: 3rem; }
+.competition-hero {
+    border-radius: 1.65rem; border: 1px solid rgba(255,255,255,.28);
+    background-image: linear-gradient(105deg, color-mix(in srgb, var(--color-league-900) 96%, #081a35), color-mix(in srgb, var(--color-league-600) 72%, #071a30) 64%, rgba(8,70,45,.72)), url('/images/public/league-stadium.jpg');
+    box-shadow: 0 18px 42px rgba(8,30,54,.17);
+}
+.competition-hero-content { min-height: 196px; align-items: center; }
+.competition-hero h1 { font-size: clamp(1.85rem, 3vw, 2.8rem); letter-spacing: -.045em; line-height: 1.12; }
+.competition-eyebrow { color: #fff; border-color: rgba(255,255,255,.25); background: rgba(255,255,255,.10); }
+.competition-hero-summary { min-width: 240px; gap: 0; padding: .25rem 1.05rem; background: rgba(3,20,33,.48); border-color: rgba(255,255,255,.19); }
+.competition-hero-summary > span { display: grid; grid-template-columns: 1.4rem 1.4rem auto; align-items: center; column-gap: .65rem; padding: .9rem .15rem; white-space: nowrap; }
+.competition-hero-summary > span + span { border-top: 1px solid rgba(255,255,255,.19); }
+.competition-hero-summary strong { font-size: 1.35rem; line-height: 1; }
+.competition-hero-summary small { font-size: .72rem; color: #e8f2f8; }
+.competition-tabs { margin-top: 1rem; padding: .6rem; gap: .35rem; border-radius: 1.15rem; background: rgba(255,255,255,.96); box-shadow: 0 7px 22px rgba(20,43,72,.07); }
+.competition-tab { flex: 1; justify-content: center; border: 1px solid transparent; border-radius: .75rem; padding-block: .72rem; white-space: nowrap; }
+.competition-tab:focus-visible { outline: 3px solid var(--color-league-600); outline-offset: 2px; }
+.competition-tab-active { background: var(--color-league-600); border-color: var(--color-league-600); box-shadow: 0 3px 9px color-mix(in srgb, var(--color-league-600) 20%, transparent); }
+.competition-tab-active .competition-tab-icon { background: rgba(255,255,255,.18); color: white; }
+.competition-stat { min-height: 128px; border: 1px solid #e4eaf1; border-radius: 1.2rem; background: #fff; box-shadow: 0 6px 19px rgba(20,43,72,.055); }
+.competition-stat strong { font-size: 2rem; letter-spacing: -.035em; }
+.competition-panel, .season-card, .regulation-card, .competition-card { border: 1px solid #e3eaf2; border-radius: 1.3rem; background: #fff; box-shadow: 0 9px 26px rgba(15,36,60,.065); }
+.competition-panel-heading { background: linear-gradient(112deg, var(--color-league-900), var(--color-league-600)); border-bottom: 0; padding-block: 1.25rem; }
+.competition-panel-heading h2 { letter-spacing: -.025em; }
+.competition-panel-heading small { display: block; margin-top: .35rem; font-size: .76rem; color: rgba(255,255,255,.8); line-height: 1.4; }
+.competition-workflow li { background: #fff; border-color: #e0e8f0; min-height: 86px; align-items: center; }
+.competition-workflow li > span { background: var(--color-league-100); color: var(--color-league-700); }
+.competition-workflow li:last-child { border-color: color-mix(in srgb, var(--color-league-600) 26%, white); background: var(--color-league-50); }
+.catalog-item { min-height: 68px; }
+.catalog-item:hover, .tiebreaker-row:hover { background: #f6f9fc; }
+.form-block { background: #fbfcfe; border-color: #e2e8f0; border-radius: 1rem; }
+.form-block h3 { color: var(--color-league-900); font-size: .92rem; }
+.regulation-card { transition: border-color .2s, box-shadow .2s; }
+.regulation-card:hover, .competition-card:hover, .season-card:hover { border-color: color-mix(in srgb, var(--color-league-600) 28%, white); box-shadow: 0 14px 30px rgba(15,36,60,.09); }
+.regulation-score span { background: #f4f7fb; border: 1px solid #e9eff5; }
+.regulation-score strong { color: var(--color-league-900); }
+.criterion-chip { border: 1px solid #e4eaf1; background: #f8fafc; }
+.competition-toolbar { background: #fff; border-color: #e1e8ef; box-shadow: 0 6px 19px rgba(20,43,72,.05); }
+.competition-card dl { border-color: #e6edf3; }
+.competition-card footer { background: #f8fafc; }
+.competition-page :deep(.form-input) { background-color: white; border-color: #cbd7e5; min-height: 42px; }
+.competition-page :deep(.form-input:focus) { border-color: var(--color-league-600); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-league-600) 13%, transparent); }
+@media (max-width: 780px) {
+    .competition-hero-summary { width: 100%; }
+    .competition-tab { flex: none; }
+    .competition-tabs { justify-content: flex-start; }
+    .competition-hero-content { align-items: stretch; }
+}
+
+/* Legibilidad y coherencia de iconos: tonos sólidos con contraste suficiente. */
+.competition-page {
+    --ui-ink: #112746;
+    --ui-muted: #475569;
+    --ui-blue: #164c91;
+}
+.competition-page .section-kicker {
+    color: #164c91;
+    font-size: .72rem;
+    letter-spacing: .12em;
+    font-weight: 800;
+}
+.competition-page .section-heading h2,
+.competition-page .competition-panel h2,
+.competition-page .season-card h3,
+.competition-page .regulation-card h3,
+.competition-page .competition-card h3 {
+    color: var(--ui-ink);
+}
+.competition-page .competition-stat p,
+.competition-page .competition-workflow strong,
+.competition-page .competition-tab {
+    font-size: .875rem;
+    font-weight: 700;
+    color: var(--ui-ink);
+}
+.competition-page .competition-stat small,
+.competition-page .competition-workflow small,
+.competition-page .section-heading span:not(.section-heading-icon) {
+    color: var(--ui-muted);
+    font-size: .75rem;
+}
+.competition-page .competition-tab {
+    min-height: 52px;
+    gap: .55rem;
+}
+.competition-page .competition-tab-icon {
+    width: 2.25rem;
+    height: 2.25rem;
+    flex-shrink: 0;
+    border-radius: .7rem;
+    background: #e9f1fb;
+    color: #174b87;
+}
+.competition-page .competition-tab-active,
+.competition-page .competition-tab-active:hover {
+    color: #fff;
+    background: #1d5dad;
+}
+.competition-page .competition-tab-active .competition-tab-icon {
+    background: rgba(255,255,255,.2);
+    color: #fff;
+}
+.competition-page .competition-stat-icon {
+    width: 3.4rem;
+    height: 3.4rem;
+    border-radius: .95rem;
+    background: #e9f1fb;
+    color: #174b87;
+    flex-shrink: 0;
+}
+.competition-page .competition-stat:nth-child(2) .competition-stat-icon {
+    background: #fff1d6;
+    color: #80520c;
+}
+.competition-page .competition-stat:nth-child(3) .competition-stat-icon {
+    background: #e8f6ed;
+    color: #166534;
+}
+.competition-page .competition-stat:nth-child(4) .competition-stat-icon {
+    background: #eef0ff;
+    color: #3730a3;
+}
+.competition-page .competition-stat strong { color: #0e2344; }
+.competition-page .section-heading-icon {
+    background: #e9f1fb;
+    color: #164c91;
+    border: 1px solid #cde0f5;
+    box-shadow: none;
+}
+.competition-page .competition-panel-heading > span {
+    color: #fff;
+    background: rgba(255,255,255,.18);
+    border: 1px solid rgba(255,255,255,.27);
+}
+.competition-page .competition-panel-heading h2,
+.competition-page .competition-panel-heading p {
+    color: #fff;
+}
+.competition-page .competition-panel-heading p {
+    font-size: .71rem;
+    letter-spacing: .12em;
+}
+.competition-page .season-calendar {
+    background: #194d8d;
+    color: #fff;
+}
+.competition-page .tournament-row > span:first-child {
+    color: #174b87;
+    background: #e9f1fb;
+}
+.competition-page .competition-hero-summary > span > svg { color: #fff; }
+.competition-page .competition-eyebrow { font-weight: 800; }
+@media (max-width: 780px) {
+    .competition-page .competition-tab { min-height: 46px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .competition-page * { transition-duration: .01ms !important; }
+}
+</style>
