@@ -10,8 +10,8 @@ type Participation = {
     competition: { id: number; name: string; maximum_roster_size?: number; division: { id: number; name: string }; category: { id: number; name: string }; tournament: { season: { id: number; name: string; starts_on: string; ends_on: string } } };
 };
 type Registration = {
-    id: number; jersey_number: number; status: string; review_reason: string | null; released_at: string | null;
-    team: { id: number; name: string; short_name: string };
+    id: number; jersey_number: number; status: string; review_reason: string | null; released_at: string | null; requested_at: string | null;
+    team: { id: number; name: string; short_name: string; crest_url?: string | null };
     team_participation: Participation;
     active_credential: { id: number; folio: string; status: string; issued_at: string } | null;
 };
@@ -26,6 +26,7 @@ type Player = {
 type Membership = { id: number; user_id: number; user: { id: number; name: string; email: string } };
 type AvailablePlayer = { id: number; full_name: string; birth_date: string; position: string };
 type CredentialParticipation = Participation & {
+    team: Participation["team"] & { crest_url?: string | null };
     active_players_count: number;
     issued_credentials_count: number;
     season: { id: number; name: string; starts_on: string; ends_on: string };
@@ -180,34 +181,54 @@ function retentionExpired(document: Player['documents'][number]): boolean { retu
             </div>
 
             <div v-if="activeTab === 'credentials' && canManage" class="mt-7 space-y-5">
-                <div class="card p-6 sm:p-8">
-                    <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
-                        <div>
-                            <h2 class="text-xl font-semibold">Credenciales por equipo</h2>
-                            <p class="mt-2 max-w-3xl text-sm text-slate-600">Cada archivo contiene únicamente jugadores activos y aprobados, en credenciales de 9 × 6 cm acomodadas para impresión en hojas A4.</p>
+                <section class="credential-head-card">
+                    <div class="flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
+                        <div class="flex items-start gap-4">
+                            <span class="credential-heading-icon"><AppIcon name="id" variant="illustrated" :size="45" /></span>
+                            <div>
+                                <h2 class="text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">Credenciales por equipo</h2>
+                                <p class="mt-1 max-w-3xl text-sm leading-6 text-slate-600">Cada archivo contiene únicamente jugadores activos y aprobados, en credenciales de 9 × 6 cm acomodadas para impresión en hojas A4.</p>
+                            </div>
                         </div>
-                        <a href="/liga/configuracion" class="btn-secondary">Configurar logotipos y colores</a>
+                        <a href="/liga/configuracion" class="credential-settings-link"><AppIcon name="settings" :size="19" /> Configurar logotipos y colores</a>
                     </div>
-                    <div v-if="credentialLogosConfigured < 4" class="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-                        Hay {{ credentialLogosConfigured }} de 4 logotipos configurados. Puedes generar las credenciales ahora; los espacios faltantes mostrarán un marcador hasta que cargues las imágenes.
+                    <div v-if="credentialLogosConfigured < 4" class="credential-warning mt-5">
+                        <AppIcon name="bell" :size="22" />
+                        <p>Hay <strong>{{ credentialLogosConfigured }} de 4</strong> logotipos configurados. Puedes generar las credenciales ahora; los espacios faltantes mostrarán un marcador hasta que cargues las imágenes.</p>
+                        <a href="/liga/configuracion" aria-label="Configurar logotipos" class="ml-auto shrink-0"><AppIcon name="settings" :size="18" /></a>
                     </div>
-                </div>
+                </section>
 
-                <div v-if="!credentialTeams.length" class="card p-12 text-center text-slate-600">No existen equipos con participación activa.</div>
+                <div v-if="!credentialTeams.length" class="credential-head-card py-14 text-center">
+                    <AppIcon name="team" variant="illustrated" :size="56" class="mx-auto" />
+                    <p class="mt-3 font-bold text-slate-900">No hay equipos con participación activa</p>
+                    <p class="mt-1 text-sm text-slate-500">Los equipos disponibles para emitir credenciales aparecerán aquí.</p>
+                </div>
                 <div v-else class="grid gap-4 lg:grid-cols-2">
-                    <article v-for="participation in credentialTeams" :key="participation.id" class="entity-card flex flex-col justify-between gap-5 p-6 sm:flex-row sm:items-center">
-                        <div>
-                            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-league-600">{{ participation.season.name }}</p>
-                            <h3 class="mt-1 text-xl font-semibold">{{ participation.team.name }}</h3>
-                            <p class="mt-1 text-sm text-slate-600">{{ participation.competition.name }} · {{ participation.competition.category.name }} · {{ participation.competition.division.name }}</p>
-                            <p class="mt-3 text-sm font-medium" :class="participation.active_players_count ? 'text-emerald-700' : 'text-amber-700'">{{ participation.active_players_count }} jugador{{ participation.active_players_count === 1 ? '' : 'es' }} activo{{ participation.active_players_count === 1 ? '' : 's' }} y aprobado{{ participation.active_players_count === 1 ? '' : 's' }}</p>
-                            <p v-if="participation.active_players_count" class="mt-1 text-xs text-slate-500">{{ participation.issued_credentials_count }} de {{ participation.active_players_count }} credenciales emitidas</p>
+                    <article v-for="participation in credentialTeams" :key="participation.id" class="credential-team-card">
+                        <div class="credential-team-main">
+                            <div class="credential-team-crest">
+                                <img v-if="participation.team.crest_url" :src="participation.team.crest_url" :alt="`Escudo de ${participation.team.name}`" loading="lazy" />
+                                <AppIcon v-else name="team" variant="illustrated" :size="52" />
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <div class="credential-season-chip">{{ participation.season.name }}</div>
+                                <h3 class="mt-1.5 text-lg font-extrabold leading-tight text-slate-950">{{ participation.team.name }}</h3>
+                                <p class="mt-1.5 text-sm leading-5 text-slate-600">{{ participation.competition.name }} · {{ participation.competition.category.name }} · {{ participation.competition.division.name }}</p>
+                            </div>
                         </div>
-                        <div class="flex shrink-0 flex-wrap gap-2">
-                            <button v-if="participation.issued_credentials_count < participation.active_players_count" class="btn-secondary" @click="issueCredentials(participation)">Emitir faltantes</button>
-                            <a v-if="participation.issued_credentials_count" :href="`/liga/plantillas/${participation.id}/credenciales`" target="_blank" rel="noopener" class="btn-secondary">Vista previa</a>
-                            <a v-if="participation.issued_credentials_count" :href="`/liga/plantillas/${participation.id}/credenciales.pdf`" class="btn-primary">Descargar PDF</a>
-                            <span v-else class="rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-500">Sin credenciales</span>
+                        <div class="credential-team-details">
+                            <p class="credential-players-count" :class="participation.active_players_count ? '' : 'credential-players-count--empty'">
+                                <span class="credential-status-dot"></span>
+                                {{ participation.active_players_count }} jugador{{ participation.active_players_count === 1 ? '' : 'es' }} activo{{ participation.active_players_count === 1 ? '' : 's' }} y aprobado{{ participation.active_players_count === 1 ? '' : 's' }}
+                            </p>
+                            <p class="mt-1 text-xs text-slate-500">{{ participation.issued_credentials_count }} de {{ participation.active_players_count }} credenciales emitidas</p>
+                        </div>
+                        <div class="credential-team-actions">
+                            <button v-if="participation.issued_credentials_count < participation.active_players_count" class="credential-issue-button" @click="issueCredentials(participation)"><AppIcon name="id" :size="16" /> Emitir faltantes</button>
+                            <a v-if="participation.issued_credentials_count" :href="`/liga/plantillas/${participation.id}/credenciales`" target="_blank" rel="noopener" class="credential-preview-button"><AppIcon name="image" :size="18" /> Vista previa</a>
+                            <a v-if="participation.issued_credentials_count" :href="`/liga/plantillas/${participation.id}/credenciales.pdf`" class="credential-download-button"><AppIcon name="download" :size="18" /> Descargar PDF</a>
+                            <span v-else-if="!participation.active_players_count" class="credential-no-players">Sin jugadores aprobados</span>
                         </div>
                     </article>
                 </div>
@@ -300,7 +321,51 @@ function retentionExpired(document: Player['documents'][number]): boolean { retu
 
             <div v-if="activeTab === 'available' && !isPlayer" class="mt-7 grid gap-4 md:grid-cols-2 players-available-list"><div v-if="!availablePlayers.length" class="card p-10 text-center text-slate-600 md:col-span-2">No hay jugadores liberados disponibles.</div><div v-for="player in availablePlayers" :key="player.id" class="card flex items-center justify-between gap-4 p-5"><div><p class="font-semibold">{{ player.full_name }}</p><p class="mt-1 text-sm text-slate-500">{{ positions[player.position] }} · {{ age(player.birth_date) }} años</p></div><button class="btn-primary" @click="existingPlayer = player">Solicitar alta</button></div></div>
 
-            <div v-if="activeTab === 'pending' && !isPlayer" class="mt-7 card players-pending-panel p-6"><div class="flex items-center gap-4"><span class="pending-heading-icon"><AppIcon name="clock" variant="illustrated" :size="48" /></span><div><h2 class="text-xl font-bold text-slate-900">Altas pendientes</h2><p class="text-sm text-slate-500">Solicitudes de jugadores que requieren revisión y aprobación.</p></div><span class="ml-auto rounded-full bg-league-50 px-3 py-1.5 text-xs font-bold text-league-700">{{ pending.length }} solicitudes</span></div><div v-if="!pending.length" class="mt-4 text-sm text-slate-500">No existen solicitudes pendientes.</div><div v-else class="mt-4 divide-y divide-slate-200"><div v-for="item in pending" :key="item.registration.id" class="player-pending-item flex flex-col justify-between gap-4 py-4 sm:flex-row sm:items-center"><div><p class="font-medium">{{ item.player.full_name }}</p><p class="text-sm text-slate-500">#{{ item.registration.jersey_number }} · {{ item.registration.team.name }}</p></div><div v-if="canManage" class="flex gap-2"><button class="btn-primary" @click="transition(item.registration, 'approve', 'Aprobar')">Aprobar</button><button class="btn-danger" @click="transition(item.registration, 'reject', 'Rechazar')">Rechazar</button></div><span v-else class="text-sm text-amber-700">Esperando revisión administrativa</span></div></div></div>
+            <section v-if="activeTab === 'pending' && !isPlayer" class="mt-7 player-pending-premium">
+                <header class="pending-premium-header">
+                    <span class="pending-premium-symbol"><AppIcon name="clock" variant="illustrated" :size="48" /></span>
+                    <div class="min-w-0 flex-1">
+                        <h2 class="text-xl font-extrabold text-slate-900 sm:text-2xl">Altas pendientes</h2>
+                        <p class="mt-1 text-sm text-slate-600">Solicitudes de alta de jugadores que requieren revisión y aprobación.</p>
+                    </div>
+                    <span class="pending-premium-total">{{ pending.length }} {{ pending.length === 1 ? 'solicitud' : 'solicitudes' }}</span>
+                </header>
+                <div v-if="!pending.length" class="py-14 text-center">
+                    <AppIcon name="check" variant="illustrated" :size="54" class="mx-auto" />
+                    <p class="mt-3 font-semibold text-slate-800">No hay altas pendientes</p>
+                    <p class="mt-1 text-sm text-slate-500">Las nuevas solicitudes aparecerán aquí.</p>
+                </div>
+                <div v-else class="mt-5 space-y-3">
+                    <article v-for="item in pending" :key="item.registration.id" class="pending-premium-item">
+                        <div class="pending-premium-identity">
+                            <span class="pending-premium-avatar">{{ initials(item.player.full_name) }}</span>
+                            <span class="pending-premium-team-logo">
+                                <img v-if="item.registration.team.crest_url" :src="item.registration.team.crest_url" :alt="`Escudo de ${item.registration.team.name}`" loading="lazy" />
+                                <AppIcon v-else name="shield" variant="illustrated" :size="43" />
+                            </span>
+                            <div class="min-w-0">
+                                <p class="truncate text-base font-extrabold text-slate-900 sm:text-lg">{{ item.player.full_name }}</p>
+                                <p class="mt-0.5 text-sm font-medium text-slate-600">#{{ item.registration.jersey_number }} · {{ item.registration.team.name }}</p>
+                                <div class="mt-2 flex flex-wrap gap-2">
+                                    <span class="pending-premium-chip"><AppIcon name="shield" :size="15" />{{ positions[item.player.position] ?? item.player.position }}</span>
+                                    <span v-if="item.player.birth_date" class="pending-premium-chip"><AppIcon name="calendar" :size="15" />{{ age(item.player.birth_date) }} años</span>
+                                    <span class="pending-premium-chip" :class="item.player.documents.length ? 'pending-premium-chip--documented' : 'pending-premium-chip--missing'">
+                                        <AppIcon name="file" :size="15" />{{ item.player.documents.length ? 'Documentos registrados' : 'Sin documentos registrados' }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="pending-premium-actions">
+                            <div class="pending-premium-date"><AppIcon name="clock" :size="19" /><span>Solicitado el<br/><strong>{{ item.registration.requested_at ? new Intl.DateTimeFormat('es-MX', { timeZone: 'America/Mexico_City', day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(item.registration.requested_at)) : 'Fecha no disponible' }}</strong></span></div>
+                            <div v-if="canManage" class="flex flex-wrap gap-2 sm:flex-nowrap">
+                                <button class="pending-premium-approve" @click="transition(item.registration, 'approve', 'Aprobar')"><AppIcon name="check" :size="19" /> Aprobar</button>
+                                <button class="pending-premium-reject" @click="transition(item.registration, 'reject', 'Rechazar')"><AppIcon name="logout" :size="18" /> Rechazar</button>
+                            </div>
+                            <span v-else class="text-sm font-medium text-amber-700">Esperando revisión administrativa</span>
+                        </div>
+                    </article>
+                </div>
+            </section>
         </section>
 
         <div v-if="existingPlayer" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4" @click.self="existingPlayer = null"><form class="w-full max-w-xl rounded-2xl bg-white p-6" @submit.prevent="submitExisting"><h2 class="text-xl font-semibold">Reincorporar jugador</h2><p class="mt-1 text-sm text-slate-500">{{ existingPlayer.full_name }}</p><div class="mt-5 space-y-4"><div><label class="form-label">Equipo y competencia</label><select v-model="registrationForm.team_participation_id" class="form-input" required><option :value="null" disabled>Selecciona</option><option v-for="participation in teamParticipations" :key="participation.id" :value="participation.id">{{ participation.team.name }} · {{ participation.competition.tournament.season.name }}</option></select></div><div><label class="form-label">Dorsal</label><input v-model="registrationForm.jersey_number" type="number" min="0" max="999" class="form-input" required><FormError :message="registrationForm.errors.jersey_number" /></div><div><label class="form-label">Motivo</label><textarea v-model="registrationForm.reason" class="form-input" required maxlength="500"></textarea></div></div><div class="mt-6 flex justify-end gap-3"><button type="button" class="btn-secondary" @click="existingPlayer = null">Cancelar</button><button class="btn-primary" :disabled="registrationForm.processing">Enviar</button></div></form></div>
@@ -350,4 +415,49 @@ function retentionExpired(document: Player['documents'][number]): boolean { retu
 .search-input-shell {position:relative;} .search-input-shell > svg {position:absolute;z-index:1;top:50%;left:1rem;transform:translateY(-50%);color:#2466ce;} .search-input-shell .form-input {padding-left:2.8rem;}
 .player-directory-card {overflow:hidden;border:1px solid #e2e9f4;border-radius:1.15rem;background:#fff;box-shadow:0 8px 22px rgba(15,35,65,.045);} .player-directory-header {display:flex;align-items:flex-start;justify-content:space-between;gap:1.25rem;padding:1.15rem 1.3rem;} .player-directory-avatar {display:grid;place-items:center;flex:none;width:3.4rem;height:3.4rem;border-radius:.85rem;background:#e7efff;color:#1864d3;font-size:1.12rem;font-weight:800;} .player-chip {display:inline-flex;align-items:center;gap:.35rem;border-radius:.55rem;background:#f2f5fb;padding:.3rem .65rem;color:#38527d;font-size:.75rem;font-weight:600;} .player-access-note {display:flex;align-items:center;gap:.35rem;margin-top:.55rem;font-size:.76rem;font-weight:600;} .directory-action {display:inline-flex;align-items:center;justify-content:center;gap:.4rem;white-space:nowrap;font-size:.76rem;padding:.55rem .75rem;} .player-roster-section {border-top:1px solid #e6ebf3;padding:.7rem 1.25rem 1rem;} .player-roster-row {display:flex;align-items:center;gap:1rem;padding:.8rem;border:1px solid #e5ebf5;border-radius:.85rem;background:#fbfcff;} .roster-team-mark {display:grid;place-items:center;flex:none;width:2.4rem;height:2.4rem;border-radius:.6rem;background:#e8f0fb;color:#1d518d;}
 @media(max-width:1050px){.players-search-bar{grid-template-columns:minmax(0,1fr) 1fr 1fr}.players-search-primary{grid-column:1/-1}.player-directory-header{flex-direction:column}.player-roster-row{flex-wrap:wrap}} @media(max-width:640px){.players-search-bar{grid-template-columns:1fr}.players-search-primary{grid-column:auto}.player-roster-row{align-items:flex-start}.player-roster-row>div:last-child{width:100%}} 
+.player-pending-premium { border: 1px solid rgba(255,255,255,.9); border-radius: 1.5rem; background: rgba(255,255,255,.97); padding: 1.25rem; box-shadow: 0 14px 35px rgba(27,42,74,.07); }
+.pending-premium-header { display:flex; align-items:center; gap:1.1rem; flex-wrap:wrap; }
+.pending-premium-symbol { width:4.1rem; height:4.1rem; flex-shrink:0; display:grid; place-items:center; border-radius:1.1rem; background:#fff3e5; }
+.pending-premium-total { margin-left:auto; border-radius:.7rem; background:#eaf1fc; color:#17467a; padding:.55rem .9rem; font-size:.82rem; font-weight:750; white-space:nowrap; }
+.pending-premium-item { display:flex; flex-wrap:wrap; gap:1rem; justify-content:space-between; align-items:center; padding:1rem; border:1px solid #dce5f2; border-radius:1rem; background:linear-gradient(120deg,#fff,#fbfdff); box-shadow:0 2px 5px rgba(17,39,70,.035); }
+.pending-premium-identity { display:flex; flex:1 1 350px; align-items:center; gap:1rem; min-width:0; }
+.pending-premium-avatar { display:grid; place-items:center; flex:0 0 3.6rem; width:3.6rem; height:3.6rem; border-radius:.85rem; background:#e8f0ff; font-size:1.1rem; font-weight:800; color:#1556ba; }
+.pending-premium-team-logo { display:grid; place-items:center; flex:0 0 4rem; width:4rem; height:4rem; border-radius:.8rem; border:1px solid #e0e7f0; background:white; overflow:hidden; }
+.pending-premium-team-logo img { width:100%; height:100%; padding:.3rem; object-fit:contain; }
+.pending-premium-chip { display:inline-flex; align-items:center; gap:.35rem; padding:.32rem .62rem; border-radius:.55rem; background:#edf3fb; color:#35527f; font-size:.72rem; font-weight:600; }
+.pending-premium-chip--documented { background:#e9f7ee; color:#17603b; }
+.pending-premium-chip--missing { background:#fff2e6; color:#a64e0a; }
+.pending-premium-actions { display:flex; flex:0 1 auto; align-items:center; gap:1rem; flex-wrap:wrap; }
+.pending-premium-date { display:flex; align-items:center; gap:.65rem; padding:0 1rem; border-left:1px solid #dae4f1; color:#5b7196; font-size:.8rem; line-height:1.45; white-space:nowrap; }
+.pending-premium-date strong { font-weight:650; }
+.pending-premium-approve, .pending-premium-reject { display:inline-flex; justify-content:center; align-items:center; gap:.5rem; min-height:2.9rem; padding:.6rem 1.05rem; border-radius:.7rem; font-size:.9rem; font-weight:750; transition:filter .18s ease, transform .18s ease; }
+.pending-premium-approve { color:white; background:#1763dc; border:1px solid #1763dc; }
+.pending-premium-reject { color:#dc2626; background:#fffafa; border:1px solid #fca5a5; }
+.pending-premium-approve:hover,.pending-premium-reject:hover { filter:brightness(.95); transform:translateY(-1px); }
+@media(max-width:640px) { .pending-premium-identity { flex-wrap:wrap; } .pending-premium-date { border-left:none; padding:0; } .pending-premium-actions { width:100%; justify-content:space-between; } .pending-premium-total { margin-left:0; } }
+
+/* Credenciales por equipo: tarjetas con escudos reales */
+.credential-head-card { border:1px solid rgba(255,255,255,.9);border-radius:1.35rem;background:rgba(255,255,255,.97);padding:1.4rem 1.5rem;box-shadow:0 12px 30px rgba(20,40,70,.07); }
+.credential-heading-icon { display:grid;place-items:center;flex:none;width:3.7rem;height:3.7rem;border-radius:.9rem;background:#eaf2ff; }
+.credential-settings-link { display:inline-flex;align-items:center;justify-content:center;gap:.55rem;min-height:2.65rem;padding:.55rem .85rem;border:1px solid #cad9ef;border-radius:.72rem;background:white;color:#153e7a;font-size:.83rem;font-weight:700;white-space:nowrap;transition:background .2s; }
+.credential-settings-link:hover,.credential-preview-button:hover { background:#eff6ff; }
+.credential-warning { display:flex;align-items:center;gap:.85rem;padding:.95rem 1.1rem;background:#fffbeb;border:1px solid #f6cf68;border-radius:.85rem;color:#854d0e;font-size:.83rem;line-height:1.5; }
+.credential-warning > svg { flex:none;color:#c97b00; }
+.credential-team-card { display:flex;flex-direction:column;min-width:0;padding:1.25rem;border:1px solid #e0e9f5;border-radius:1.25rem;background:linear-gradient(135deg,#fff,#fbfdff);box-shadow:0 8px 22px rgba(15,36,70,.065); }
+.credential-team-main { display:flex;align-items:center;gap:1.2rem; }
+.credential-team-crest { display:grid;place-items:center;flex:none;width:6rem;height:6rem;overflow:hidden;border:1px solid #dce5f3;border-radius:.95rem;background:#f8fbff; }
+.credential-team-crest img { width:100%;height:100%;padding:.45rem;object-fit:contain; }
+.credential-season-chip { display:inline-flex;width:fit-content;padding:.33rem .7rem;border-radius:.6rem;background:#eaf1ff;color:#1353b1;font-size:.66rem;font-weight:800;letter-spacing:.085em;text-transform:uppercase; }
+.credential-team-details { margin-top:.7rem;padding-left:7.2rem; }
+.credential-players-count { display:flex;align-items:center;gap:.5rem;color:#087c4e;font-weight:650;font-size:.82rem; }
+.credential-players-count--empty { color:#a16207; }
+.credential-status-dot { display:inline-block;flex:none;width:.55rem;height:.55rem;border-radius:50%;background:currentColor; }
+.credential-team-actions { display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:.6rem;margin-top:auto;padding-top:1rem; }
+.credential-preview-button,.credential-download-button,.credential-issue-button { display:inline-flex;align-items:center;justify-content:center;gap:.45rem;min-height:2.65rem;padding:.6rem .85rem;border-radius:.7rem;font-size:.83rem;font-weight:750;white-space:nowrap; }
+.credential-preview-button { border:1px solid #bfd2f0;color:#1652b6;background:white; }
+.credential-download-button { border:1px solid #1667df;background:#1769e9;color:white;box-shadow:0 4px 12px rgba(23,105,233,.15); }
+.credential-download-button:hover { background:#0f56c9; }
+.credential-issue-button { border:1px solid #c9d8ee;color:#174b94;background:#ecf4ff; }
+.credential-no-players { font-size:.78rem;color:#6b7280; }
+@media(max-width:640px){.credential-head-card{padding:1.1rem}.credential-team-card{padding:1rem}.credential-team-crest{width:4.7rem;height:4.7rem}.credential-team-main{gap:.85rem}.credential-team-details{padding-left:0}.credential-team-actions{justify-content:stretch}.credential-team-actions a,.credential-team-actions button{flex:1}.credential-settings-link{white-space:normal} }
 </style>

@@ -21,6 +21,7 @@ use App\Support\LeagueContext;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -49,6 +50,9 @@ class FinanceController extends Controller
 
         return Inertia::render('League/Finance/Index', [
             'charges' => $charges,
+            'teamCrests' => Team::whereIn('id', $teamIds)->get(['id', 'crest_path'])->mapWithKeys(fn (Team $team) => [
+                $team->id => $team->crest_path ? Storage::disk('public')->url($team->crest_path) : null,
+            ]),
             'payments' => $payments,
             'openCharges' => $openCharges,
             'permissions' => ['manage' => $canManage],

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppIcon from '../../../components/AppIcon.vue';
 import FormError from '../../../components/FormError.vue';
 import AppLayout from '../../../layouts/AppLayout.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
@@ -29,6 +30,19 @@ const observationForm = useForm({ observed_on: new Date().toISOString().slice(0,
 
 const activeCount = computed(() => props.referees.filter((item) => item.status === 'active').length);
 const totalAvailability = computed(() => props.referees.reduce((total, item) => total + item.availabilities.length, 0));
+const search = ref('');
+const statusFilter = ref('all');
+const levelFilter = ref('all');
+const selectedSections = ref<Record<number, 'availability' | 'information' | 'history' | 'observations'>>({});
+const refereeLevels = computed(() => [...new Set(props.referees.map((item) => item.category_level).filter(Boolean))]);
+const visibleReferees = computed(() => props.referees.filter((item) => {
+    const query = search.value.trim().toLocaleLowerCase('es-MX');
+    const contact = [item.user.name, item.user.email, item.contact_email ?? '', item.category_level].join(' ').toLocaleLowerCase('es-MX');
+    return (!query || contact.includes(query)) && (statusFilter.value === 'all' || item.status === statusFilter.value) && (levelFilter.value === 'all' || item.category_level === levelFilter.value);
+}));
+function section(refereeId: number) { return selectedSections.value[refereeId] ?? 'availability'; }
+function initials(name: string) { return name.split(/\s+/).filter(Boolean).map((word) => word[0]).slice(0, 2).join('').toUpperCase(); }
+
 const days: Record<number, string> = { 1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves', 5: 'Viernes', 6: 'Sábado', 7: 'Domingo' };
 
 function newReferee() {
@@ -91,69 +105,140 @@ function time(value: string): string { return value.slice(0, 5); }
 <template>
     <Head title="Árbitros y disponibilidad" />
     <AppLayout>
-        <section>
-            <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-                <div>
-                    <p class="text-sm font-semibold uppercase tracking-[0.18em] text-league-600">Módulo 9</p>
-                    <h1 class="mt-1 text-3xl font-semibold">Árbitros y disponibilidad</h1>
-                    <p class="mt-2 text-slate-600">Expedientes, horarios disponibles y seguimiento interno del cuerpo arbitral.</p>
+        <section class="referees-page">
+            <header class="referees-hero">
+                <div class="referees-hero__inner">
+                    <div class="max-w-3xl">
+                        <p class="text-xs font-bold uppercase tracking-[0.22em] text-white/75">Módulo 9 · Operación</p>
+                        <h1 class="mt-2 text-3xl font-extrabold tracking-tight text-white sm:text-4xl">Árbitros y disponibilidad</h1>
+                        <p class="mt-3 max-w-2xl text-sm leading-6 text-white/90 sm:text-base">Expedientes, horarios disponibles y seguimiento interno del cuerpo arbitral.</p>
+                    </div>
+                    <button v-if="canManage" class="referees-hero__action" :disabled="!eligibleMembers.length" @click="newReferee">
+                        <AppIcon name="user" :size="18" /> Registrar árbitro
+                    </button>
                 </div>
-                <button v-if="canManage" class="btn-primary" :disabled="!eligibleMembers.length" @click="newReferee">Registrar árbitro</button>
+            </header>
+
+            <div class="mt-5 grid gap-4 sm:grid-cols-3">
+                <div class="referee-stat">
+                    <span class="referee-stat__icon referee-stat__icon--blue"><AppIcon name="users" variant="illustrated" :size="34" /></span>
+                    <div><p class="referee-stat__label">Árbitros registrados</p><strong class="referee-stat__count">{{ referees.length }}</strong></div>
+                </div>
+                <div class="referee-stat">
+                    <span class="referee-stat__icon referee-stat__icon--green"><AppIcon name="check" variant="illustrated" :size="34" /></span>
+                    <div><p class="referee-stat__label">Árbitros activos</p><strong class="referee-stat__count">{{ activeCount }}</strong></div>
+                </div>
+                <div class="referee-stat">
+                    <span class="referee-stat__icon referee-stat__icon--blue"><AppIcon name="calendar" variant="illustrated" :size="34" /></span>
+                    <div><p class="referee-stat__label">Horarios registrados</p><strong class="referee-stat__count">{{ totalAvailability }}</strong></div>
+                </div>
             </div>
 
-            <div class="mt-7 grid gap-4 sm:grid-cols-3">
-                <div class="stat-card"><span class="stat-label">Árbitros registrados</span><span class="stat-value">{{ referees.length }}</span></div>
-                <div class="stat-card"><span class="stat-label">Árbitros activos</span><span class="stat-value">{{ activeCount }}</span></div>
-                <div class="stat-card"><span class="stat-label">Horarios registrados</span><span class="stat-value">{{ totalAvailability }}</span></div>
-            </div>
-
-            <div v-if="canManage && !eligibleMembers.length && !referees.length" class="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            <div v-if="canManage && !eligibleMembers.length && !referees.length" class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
                 Primero crea o asigna en <strong>Miembros</strong> un usuario con el rol Árbitro. Después podrás abrir su expediente aquí.
             </div>
-            <div class="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-                Las asignaciones e historial de partidos se habilitarán al crear jornadas y partidos en el Módulo 10. La disponibilidad registrada aquí será usada para impedir cruces de horario.
+            <div class="mt-4 flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                <AppIcon name="badge" :size="18" class="mt-0.5 shrink-0" />
+                <p>La disponibilidad registrada se utiliza para evitar cruces de horario al asignar árbitros a partidos.</p>
             </div>
 
-            <div v-if="!referees.length" class="card mt-7 p-12 text-center text-slate-600">
-                {{ canManage ? 'No hay árbitros registrados en esta liga.' : 'Tu usuario todavía no tiene un expediente arbitral. Solicita al administrador que lo registre.' }}
+            <div class="referee-filters mt-5">
+                <div class="min-w-0 flex-1">
+                    <label for="referee-search" class="mb-2 block text-xs font-bold text-slate-700">Buscar árbitro</label>
+                    <div class="relative">
+                        <span class="pointer-events-none absolute inset-y-0 left-4 flex items-center text-league-700"><AppIcon name="user" :size="19" /></span>
+                        <input id="referee-search" v-model="search" class="form-input pl-11" type="search" placeholder="Nombre, correo o categoría...">
+                    </div>
+                </div>
+                <div class="w-full sm:w-44">
+                    <label for="referee-status-filter" class="mb-2 block text-xs font-bold text-slate-700">Estado</label>
+                    <select id="referee-status-filter" v-model="statusFilter" class="form-input"><option value="all">Todos</option><option value="active">Activo</option><option value="inactive">Inactivo</option></select>
+                </div>
+                <div class="w-full sm:w-48">
+                    <label for="referee-level-filter" class="mb-2 block text-xs font-bold text-slate-700">Categoría o nivel</label>
+                    <select id="referee-level-filter" v-model="levelFilter" class="form-input"><option value="all">Todos</option><option v-for="level in refereeLevels" :key="level" :value="level">{{ level }}</option></select>
+                </div>
             </div>
-            <div v-else class="mt-7 grid gap-6 lg:grid-cols-2">
-                <article v-for="referee in referees" :key="referee.id" class="card overflow-hidden">
-                    <header class="flex items-start gap-4 border-b border-slate-200 p-6">
-                        <div class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-league-100 text-2xl font-bold text-league-900">
-                            <img v-if="referee.photo_url" :src="referee.photo_url" :alt="referee.user.name" class="h-full w-full object-cover">
-                            <span v-else>{{ referee.user.name.charAt(0).toUpperCase() }}</span>
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <div class="flex flex-wrap items-center gap-2">
-                                <h2 class="truncate text-xl font-semibold">{{ referee.user.name }}</h2>
-                                <span class="rounded-full px-2.5 py-1 text-xs font-semibold" :class="referee.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'">{{ referee.status === 'active' ? 'Activo' : 'Inactivo' }}</span>
+
+            <div v-if="!referees.length" class="referee-empty mt-5">
+                <AppIcon name="users" variant="illustrated" :size="54" />
+                <h2 class="mt-4 text-lg font-bold text-slate-900">{{ canManage ? 'No hay árbitros registrados' : 'No tienes expediente arbitral' }}</h2>
+                <p class="mt-2 text-sm text-slate-500">{{ canManage ? 'Registra tu primer árbitro para comenzar a administrar su disponibilidad.' : 'Solicita al administrador que registre tu expediente.' }}</p>
+            </div>
+            <div v-else-if="!visibleReferees.length" class="referee-empty mt-5">
+                <AppIcon name="users" variant="illustrated" :size="48" />
+                <p class="mt-3 font-semibold text-slate-800">No hay árbitros que coincidan con los filtros.</p>
+                <button class="mt-3 text-sm font-semibold text-league-700" @click="search = ''; statusFilter = 'all'; levelFilter = 'all'">Limpiar filtros</button>
+            </div>
+            <div v-else class="mt-5 grid items-start gap-5 lg:grid-cols-2">
+                <article v-for="referee in visibleReferees" :key="referee.id" class="referee-card">
+                    <header class="referee-card__header">
+                        <div class="flex min-w-0 items-start gap-3 sm:gap-4">
+                            <div class="referee-avatar">
+                                <img v-if="referee.photo_url" :src="referee.photo_url" :alt="referee.user.name" class="h-full w-full object-cover">
+                                <span v-else>{{ initials(referee.user.name) }}</span>
                             </div>
-                            <p class="mt-1 font-medium text-league-700">{{ referee.category_level }}</p>
-                            <p class="mt-2 break-all text-sm text-slate-600">{{ referee.contact_email || referee.user.email }}</p>
-                            <p class="text-sm text-slate-600">{{ referee.contact_phone || referee.user.phone || 'Sin teléfono' }}</p>
+                            <div class="min-w-0 flex-1">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <h2 class="text-lg font-bold leading-6 text-slate-900">{{ referee.user.name }}</h2>
+                                    <span class="referee-status" :class="referee.status === 'active' ? 'referee-status--active' : 'referee-status--inactive'">{{ referee.status === 'active' ? 'Activo' : 'Inactivo' }}</span>
+                                </div>
+                                <p class="mt-1 text-sm font-semibold text-league-700">{{ referee.category_level }}</p>
+                                <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                                    <span class="flex min-w-0 items-center gap-1.5"><AppIcon name="mail" :size="14" /><span class="break-all">{{ referee.contact_email || referee.user.email }}</span></span>
+                                    <span class="flex items-center gap-1.5"><AppIcon name="phone" :size="14" />{{ referee.contact_phone || referee.user.phone || 'Sin teléfono' }}</span>
+                                </div>
+                            </div>
                         </div>
-                        <button class="text-sm font-semibold text-league-700 underline" @click="canManage ? editReferee(referee) : editOwn(referee)">Editar</button>
+                        <button type="button" class="referee-edit" @click="canManage ? editReferee(referee) : editOwn(referee)"><AppIcon name="edit" :size="14" />Editar</button>
                     </header>
 
-                    <div class="p-6">
-                        <div class="flex items-center justify-between"><h3 class="font-semibold">Disponibilidad semanal</h3><button class="text-sm font-semibold text-league-700" @click="newAvailability(referee)">+ Horario</button></div>
-                        <div v-if="!referee.availabilities.length" class="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Sin disponibilidad: no podrá asignarse a partidos.</div>
-                        <div v-else class="mt-3 space-y-2">
-                            <div v-for="item in referee.availabilities" :key="item.id" class="flex justify-between gap-3 rounded-lg bg-slate-50 p-3 text-sm">
-                                <div><span class="font-medium">{{ days[item.weekday] }}</span> · {{ time(item.starts_at) }}–{{ time(item.ends_at) }}<p v-if="item.valid_from || item.valid_until" class="text-xs text-slate-500">Vigencia: {{ item.valid_from ?? 'sin inicio' }} a {{ item.valid_until ?? 'sin fin' }}</p></div>
-                                <button class="text-red-700" @click="deleteAvailability(item)">Quitar</button>
-                            </div>
-                        </div>
+                    <nav class="referee-tabs" :aria-label="`Información de ${referee.user.name}`">
+                        <button type="button" :class="{'is-active': section(referee.id) === 'availability'}" @click="selectedSections[referee.id] = 'availability'">Disponibilidad</button>
+                        <button type="button" :class="{'is-active': section(referee.id) === 'information'}" @click="selectedSections[referee.id] = 'information'">Información</button>
+                        <button type="button" :class="{'is-active': section(referee.id) === 'history'}" @click="selectedSections[referee.id] = 'history'">Historial</button>
+                        <button v-if="canManage" type="button" :class="{'is-active': section(referee.id) === 'observations'}" @click="selectedSections[referee.id] = 'observations'">Observaciones</button>
+                    </nav>
 
-                        <template v-if="canManage">
-                            <div class="mt-5 border-t border-slate-200 pt-4">
-                                <div class="flex items-center justify-between"><h3 class="font-semibold">Observaciones internas</h3><button class="text-sm font-semibold text-league-700" @click="newObservation(referee)">+ Observación</button></div>
-                                <p v-if="!referee.observations.length" class="mt-2 text-sm text-slate-500">Sin observaciones administrativas.</p>
-                                <div v-else class="mt-3 space-y-2"><div v-for="item in referee.observations" :key="item.id" class="rounded-lg border border-slate-200 p-3 text-sm"><div class="flex justify-between gap-3 text-xs text-slate-500"><span>{{ item.observed_on }}</span><span>{{ item.creator?.name ?? 'Administrador' }}</span></div><p class="mt-2 whitespace-pre-line text-slate-700">{{ item.observation }}</p></div></div>
-                            </div>
-                            <div v-if="referee.notes" class="mt-5 rounded-xl bg-slate-50 p-4"><p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Notas privadas del expediente</p><p class="mt-2 whitespace-pre-line text-sm text-slate-700">{{ referee.notes }}</p></div>
+                    <div class="referee-card__body">
+                        <template v-if="section(referee.id) === 'availability'">
+                            <section class="referee-inner-panel">
+                                <div class="referee-panel-heading">
+                                    <div class="flex items-center gap-2"><AppIcon name="clock" variant="illustrated" :size="30" /><h3>Disponibilidad semanal</h3></div>
+                                    <button class="referee-add" @click="newAvailability(referee)"><span>＋</span> Agregar horario</button>
+                                </div>
+                                <p v-if="!referee.availabilities.length" class="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">Sin disponibilidad: no podrá asignarse a partidos.</p>
+                                <div v-else class="mt-3 divide-y divide-slate-200">
+                                    <div v-for="item in referee.availabilities" :key="item.id" class="referee-schedule-row">
+                                        <span class="font-semibold text-slate-700">{{ days[item.weekday] }}</span>
+                                        <div class="text-slate-600"><span>{{ time(item.starts_at) }} – {{ time(item.ends_at) }}</span><p v-if="item.valid_from || item.valid_until" class="mt-0.5 text-xs">Vigencia: {{ item.valid_from ?? 'sin inicio' }} a {{ item.valid_until ?? 'sin fin' }}</p></div>
+                                        <button type="button" class="text-red-600 hover:text-red-800" aria-label="Eliminar horario" @click="deleteAvailability(item)">Quitar</button>
+                                    </div>
+                                </div>
+                            </section>
+                            <section v-if="canManage" class="referee-inner-panel mt-4">
+                                <div class="referee-panel-heading">
+                                    <div class="flex items-center gap-2"><AppIcon name="file" variant="illustrated" :size="30" /><h3>Observaciones internas</h3></div>
+                                    <button class="referee-add" @click="newObservation(referee)"><span>＋</span> Agregar observación</button>
+                                </div>
+                                <p v-if="!referee.observations.length" class="referee-muted-note">Sin observaciones administrativas.</p>
+                                <p v-else class="referee-muted-note">{{ referee.observations.length }} {{ referee.observations.length === 1 ? 'observación registrada' : 'observaciones registradas' }} · Consulta los detalles en la pestaña Observaciones.</p>
+                            </section>
                         </template>
+                        <section v-else-if="section(referee.id) === 'information'" class="referee-inner-panel">
+                            <div class="referee-panel-heading"><div class="flex items-center gap-2"><AppIcon name="id" variant="illustrated" :size="30" /><h3>Información del expediente</h3></div></div>
+                            <dl class="mt-4 space-y-3 text-sm"><div class="referee-info-row"><dt>Nivel arbitral</dt><dd>{{ referee.category_level }}</dd></div><div class="referee-info-row"><dt>Fecha de ingreso</dt><dd>{{ referee.joined_on?.slice(0, 10) || 'No registrada' }}</dd></div><div class="referee-info-row"><dt>Correo de contacto</dt><dd class="break-all">{{ referee.contact_email || referee.user.email }}</dd></div><div class="referee-info-row"><dt>Teléfono</dt><dd>{{ referee.contact_phone || referee.user.phone || 'No registrado' }}</dd></div></dl>
+                            <div v-if="canManage && referee.notes" class="mt-4 border-t border-slate-200 pt-4"><h4 class="text-xs font-bold uppercase tracking-wide text-slate-500">Notas privadas del expediente</h4><p class="mt-2 whitespace-pre-line text-sm text-slate-700">{{ referee.notes }}</p></div>
+                        </section>
+                        <section v-else-if="section(referee.id) === 'history'" class="referee-inner-panel">
+                            <div class="referee-panel-heading"><div class="flex items-center gap-2"><AppIcon name="history" variant="illustrated" :size="30" /><h3>Historial de partidos</h3></div></div>
+                            <p class="referee-muted-note">El historial de asignaciones y partidos se consulta desde Programación y Partidos. Esta vista no recibe aún esos registros.</p>
+                        </section>
+                        <section v-else-if="canManage" class="referee-inner-panel">
+                            <div class="referee-panel-heading"><div class="flex items-center gap-2"><AppIcon name="file" variant="illustrated" :size="30" /><h3>Observaciones internas</h3></div><button class="referee-add" @click="newObservation(referee)"><span>＋</span> Agregar observación</button></div>
+                            <p v-if="!referee.observations.length" class="referee-muted-note">Sin observaciones administrativas.</p>
+                            <div v-else class="mt-3 space-y-3"><div v-for="item in referee.observations" :key="item.id" class="referee-observation"><div class="flex flex-wrap justify-between gap-2 text-xs text-slate-500"><span>{{ item.observed_on }}</span><span>{{ item.creator?.name ?? 'Administrador' }}</span></div><p class="mt-2 whitespace-pre-line text-sm text-slate-800">{{ item.observation }}</p></div></div>
+                        </section>
                     </div>
                 </article>
             </div>
@@ -190,3 +275,44 @@ function time(value: string): string { return value.slice(0, 5); }
         </div>
     </AppLayout>
 </template>
+
+<style scoped>
+.referees-page { padding-bottom: 1rem; }
+.referees-hero { position: relative; overflow: hidden; border-radius: 1.55rem; background-image: linear-gradient(105deg, rgba(7,32,78,.82), rgba(14,72,150,.65) 55%, rgba(15,88,158,.52)), url('/images/public/league-stadium.jpg'); background-size: cover; background-position: center 42%; box-shadow: 0 16px 35px rgba(17,45,87,.15); }
+.referees-hero__inner { position: relative; display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 1.5rem; padding: 1.8rem 2rem; }
+.referees-hero__action { display: inline-flex; align-items: center; justify-content: center; gap: .6rem; flex: 0 0 auto; border-radius: .8rem; background: #fff; color: #144eaa; padding: .8rem 1.2rem; font-size: .9rem; font-weight: 750; box-shadow: 0 5px 15px rgba(4,18,45,.14); transition: background .2s; }
+.referees-hero__action:hover { background: #f0f6ff; }
+.referees-hero__action:disabled { opacity: .6; cursor: not-allowed; }
+.referee-stat { display: flex; align-items: center; gap: 1rem; min-height: 6rem; border: 1px solid #e3eaf4; border-radius: 1.05rem; background: rgba(255,255,255,.98); padding: 1.1rem 1.2rem; box-shadow: 0 8px 22px rgba(16,41,83,.07); }
+.referee-stat__icon { display: grid; flex: 0 0 3.6rem; height: 3.6rem; place-items: center; border-radius: .8rem; }
+.referee-stat__icon--blue { background: #eaf2ff; }
+.referee-stat__icon--green { background: #e5f8ef; }
+.referee-stat__label { font-size: .84rem; font-weight: 700; color: #1c335b; }
+.referee-stat__count { display: block; margin-top: .25rem; font-size: 1.85rem; line-height: 1; font-weight: 800; color: #102f71; }
+.referee-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 1rem; border: 1px solid #e1e9f4; border-radius: 1rem; background: #fff; padding: 1rem; box-shadow: 0 7px 20px rgba(15,43,84,.06); }
+.referee-card { overflow: hidden; border: 1px solid #dfe8f4; border-radius: 1.05rem; background: #fff; box-shadow: 0 9px 24px rgba(13,40,82,.09); }
+.referee-card__header { display: flex; align-items: flex-start; justify-content: space-between; gap: .8rem; padding: 1.1rem; }
+.referee-avatar { display: grid; flex: 0 0 4.4rem; height: 4.4rem; overflow: hidden; place-items: center; border-radius: .9rem; background: #eaf2ff; color: #2464b8; font-size: 1.6rem; font-weight: 800; }
+.referee-status { display: inline-flex; border-radius: 999px; padding: .24rem .55rem; font-size: .7rem; font-weight: 800; }
+.referee-status--active { background: #dff8eb; color: #067647; }
+.referee-status--inactive { background: #e9edf3; color: #5b6474; }
+.referee-edit { display: inline-flex; align-items: center; gap: .4rem; border: 1px solid #cddcf0; border-radius: .6rem; padding: .5rem .7rem; color: #1b58ad; font-size: .8rem; font-weight: 700; white-space: nowrap; }
+.referee-tabs { display: flex; overflow-x: auto; border-bottom: 1px solid #e4ebf5; padding: 0 .7rem; }
+.referee-tabs button { flex: 1; min-width: max-content; border-bottom: 2px solid transparent; padding: .8rem .55rem; color: #61718a; font-size: .75rem; font-weight: 650; }
+.referee-tabs button.is-active { border-color: #2474eb; color: #1162d7; }
+.referee-card__body { min-height: 16rem; padding: .9rem; }
+.referee-inner-panel { border: 1px solid #e6edf7; border-radius: .8rem; background: #fff; padding: .85rem; }
+.referee-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: .7rem; }
+.referee-panel-heading h3 { color: #1a3159; font-size: .84rem; font-weight: 800; }
+.referee-add { display: inline-flex; align-items: center; gap: .25rem; border: 1px solid #c8daf7; border-radius: .6rem; padding: .45rem .6rem; color: #1260cb; font-size: .73rem; font-weight: 700; white-space: nowrap; }
+.referee-add:hover,.referee-edit:hover { background: #f3f8ff; }
+.referee-schedule-row { display: grid; grid-template-columns: minmax(60px, .75fr) minmax(95px, 1.25fr) auto; align-items: start; gap: .5rem; padding: .72rem .25rem; font-size: .78rem; }
+.referee-muted-note { margin-top: .8rem; border: 1px dashed #dce5f2; border-radius: .55rem; background: #f8faff; padding: .8rem; color: #7182a2; font-size: .78rem; }
+.referee-info-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem; border-bottom: 1px solid #eef2f8; padding-bottom: .55rem; }
+.referee-info-row dt { color: #64748b; }
+.referee-info-row dd { color: #233f65; font-weight: 650; }
+.referee-observation { border: 1px solid #e2e8f0; border-radius: .75rem; background: #fafcff; padding: .8rem; }
+.referee-empty { display: flex; flex-direction: column; align-items: center; border: 1px dashed #cad8ec; border-radius: 1rem; background: #fff; padding: 3rem 1.5rem; text-align: center; }
+@media (min-width: 768px) { .referees-hero__inner { flex-direction: row; align-items: center; padding: 2rem 2.4rem; } }
+@media (max-width: 540px) { .referee-card__header { flex-wrap: wrap; } .referee-edit { margin-left: auto; } .referee-panel-heading { align-items: flex-start; } }
+</style>

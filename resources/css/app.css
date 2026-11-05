@@ -621,3 +621,27 @@
     color: #fff;
     text-shadow: 0 1px 2px rgba(0,0,0,.15);
 }
+
+
+/* ProLiga · Encabezados con estadio — edición visual unificada 2026-11-03.
+   Se utiliza el estadio original del proyecto y la paleta dinámica de la liga.
+   !important evita que una vista con estilos scoped sustituya esta fotografía. */
+:is(.dashboard-hero, .participants-hero, .competition-hero, .match-operations-hero, .schedule-hero, .fields-hero, .page-hero, .proliga-stadium-hero) {
+    background-color: #123c77 !important;
+    background-image:
+        linear-gradient(105deg,
+            color-mix(in srgb, var(--color-league-900, #1b2a4a) 80%, transparent) 0%,
+            color-mix(in srgb, var(--color-league-600, #2d69ae) 62%, transparent) 54%,
+            color-mix(in srgb, var(--color-league-900, #1b2a4a) 73%, transparent) 100%),
+        url('/images/public/league-stadium.jpg') !important;
+    background-position: center 56% !important;
+    background-size: cover !important;
+    background-repeat: no-repeat !important;
+    border-radius: 1.75rem;
+    overflow: hidden;
+}
+
+:is(.dashboard-hero, .participants-hero, .competition-hero, .match-operations-hero, .schedule-hero, .fields-hero, .page-hero, .proliga-stadium-hero) h1 {
+    color: #fff !important;
+    text-shadow: 0 1px 3px rgba(4, 18, 40, .22);
+}

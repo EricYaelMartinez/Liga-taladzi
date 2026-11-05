@@ -57,6 +57,7 @@ class AuditLogController extends Controller
     private function filters(Request $request): array
     {
         return $request->validate([
+            'search' => ['nullable', 'string', 'max:150'],
             'action' => ['nullable', 'string', 'max:100'],
             'actor_id' => ['nullable', 'integer'],
             'date_from' => ['nullable', 'date_format:Y-m-d'],
@@ -68,6 +69,16 @@ class AuditLogController extends Controller
     private function query(int $leagueId, array $filters): Builder
     {
         return AuditLog::query()->where('league_id', $leagueId)
+            ->when($filters['search'] ?? null, function (Builder $query, string $value): void {
+                $term = '%'.addcslashes($value, '%_\\').'%';
+                $query->where(function (Builder $builder) use ($term): void {
+                    $builder->where('action', 'ilike', $term)
+                        ->orWhere('auditable_type', 'ilike', $term)
+                        ->orWhere('ip_address', 'ilike', $term)
+                        ->orWhere('reason', 'ilike', $term)
+                        ->orWhereHas('actor', fn (Builder $actor) => $actor->where('name', 'ilike', $term)->orWhere('email', 'ilike', $term));
+                });
+            })
             ->when($filters['action'] ?? null, fn (Builder $query, $value) => $query->where('action', $value))
             ->when($filters['actor_id'] ?? null, fn (Builder $query, $value) => $query->where('actor_user_id', $value))
             ->when($filters['date_from'] ?? null, fn (Builder $query, $value) => $query->whereDate('created_at', '>=', $value))

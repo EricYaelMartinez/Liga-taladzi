@@ -18,6 +18,7 @@ use App\Support\AuditLogger;
 use App\Support\LeagueContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -53,7 +54,7 @@ class LineupController extends Controller
             ->with([
                 'competition:id,name', 'matchday:id,name,number', 'field.venue:id,name',
                 'refereeAssignments:id,match_id,referee_id',
-                'homeParticipation.team:id,name,short_name', 'awayParticipation.team:id,name,short_name',
+                'homeParticipation.team:id,name,short_name,crest_path', 'awayParticipation.team:id,name,short_name,crest_path',
                 'homeParticipation.playerRegistrations' => fn ($query) => $query->where('status', 'active')->whereHas('player', fn ($player) => $player->where('status', 'active'))->with('player:id,full_name,position,status')->orderBy('jersey_number'),
                 'awayParticipation.playerRegistrations' => fn ($query) => $query->where('status', 'active')->whereHas('player', fn ($player) => $player->where('status', 'active'))->with('player:id,full_name,position,status')->orderBy('jersey_number'),
                 'lineups.players.registration.player:id,full_name,position', 'lineups.submittedBy:id,name',
@@ -108,7 +109,12 @@ class LineupController extends Controller
                 return [
                     'participation_id' => $participation->id,
                     'name' => $participation->registered_name,
-                    'team' => $participation->team,
+                    'team' => [
+                        'id' => $participation->team->id,
+                        'name' => $participation->team->name,
+                        'short_name' => $participation->team->short_name,
+                        'crest_url' => $participation->team->crest_path ? Storage::disk('public')->url($participation->team->crest_path) : null,
+                    ],
                     'editable' => $editable,
                     'lineup' => $visible && $lineup ? [
                         'id' => $lineup->id,

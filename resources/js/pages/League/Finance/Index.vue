@@ -1,20 +1,22 @@
 <script setup lang="ts">
 import AppLayout from '../../../layouts/AppLayout.vue';
 import FormError from '../../../components/FormError.vue';
+import AppIcon from '../../../components/AppIcon.vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
 type Concept = { id: number; name: string; description: string | null; type: string; default_amount: string; active: boolean };
 type Participation = { id: number; team_id: number; registered_name: string; status: string; financial_status: string; team: { id: number; name: string }; season: { id: number; name: string; status: string }; competition: { id: number; name: string; division_id: number; status: string }; division: { id: number; name: string } | null };
-type Charge = { id: number; team_id: number; description: string; type: string; original_amount: string; balance: string; issued_on: string; due_on: string; grace_until: string | null; status: string; team: { name: string }; participation: { registered_name: string; competition: { name: string } } | null; season: { name: string } | null; concept: { name: string } | null };
+type Charge = { id: number; team_id: number; description: string; type: string; original_amount: string; balance: string; issued_on: string; due_on: string; grace_until: string | null; status: string; team: { id: number; name: string }; participation: { registered_name: string; competition: { name: string } } | null; season: { name: string } | null; concept: { name: string } | null };
 type Allocation = { id: number; amount: string; charge: { id: number; description: string } };
-type Payment = { id: number; receipt_number: string; amount: string; method: string; paid_at: string; notes: string | null; voided_at: string | null; void_reason: string | null; team: { name: string }; receiver: { name: string } | null; allocations: Allocation[] };
+type Payment = { id: number; receipt_number: string; amount: string; method: string; paid_at: string; notes: string | null; voided_at: string | null; void_reason: string | null; team: { id: number; name: string }; receiver: { name: string } | null; allocations: Allocation[] };
 type OpenCharge = { id: number; team_id: number; description: string; balance: string; due_on: string; status: string };
 type PageLink = { url: string | null; label: string; active: boolean };
 type Paginated<T> = { data: T[]; links: PageLink[] };
 
 const props = defineProps<{
     charges: Paginated<Charge>;
+    teamCrests: Record<number, string | null>;
     payments: Payment[];
     openCharges: OpenCharge[];
     permissions: { manage: boolean };
@@ -24,6 +26,16 @@ const props = defineProps<{
     participations: Participation[];
 }>();
 
+const failedCrests = ref<number[]>([]);
+function crestUrl(teamId: number): string | null {
+    return failedCrests.value.includes(teamId) ? null : (props.teamCrests[teamId] ?? null);
+}
+function hideBrokenCrest(teamId: number): void {
+    if (!failedCrests.value.includes(teamId)) failedCrests.value.push(teamId);
+}
+function teamInitials(name: string): string {
+    return name.split(/\s+/).slice(0, 2).map((part) => part[0] ?? "").join("").toUpperCase();
+}
 const today = new Date().toISOString().slice(0, 10);
 const now = new Date().toISOString().slice(0, 16);
 const conceptForm = useForm({ name: '', description: '', type: 'fee', default_amount: '' });
@@ -171,20 +183,28 @@ function voidPayment(payment: Payment): void {
     <Head title="Pagos y recibos" />
     <AppLayout>
         <section>
-            <div class="flex flex-col justify-between gap-5 lg:flex-row lg:items-start">
-                <div><p class="text-sm font-semibold uppercase tracking-[0.18em] text-league-600">Módulo 15</p><h1 class="mt-1 text-3xl font-semibold">Pagos, fianzas y recibos</h1><p class="mt-2 max-w-3xl text-slate-600">Estado de cuenta por equipo, cobros en efectivo, pagos parciales, recibos y control de morosidad.</p></div>
-                <button v-if="permissions.manage" type="button" class="btn-primary" @click="router.post('/liga/finanzas/sincronizar', {}, { preserveScroll: true })">Sincronizar fianzas y vencimientos</button>
+            <header class="finance-hero">
+                <div class="relative z-10 flex flex-col gap-6 px-6 py-7 lg:flex-row lg:items-center lg:justify-between lg:px-9">
+                    <div class="max-w-3xl">
+                        <p class="text-xs font-bold uppercase tracking-[0.24em] text-sky-200">Módulo 15 · Control financiero</p>
+                        <h1 class="mt-2 text-3xl font-extrabold tracking-tight text-white sm:text-4xl">Pagos, fianzas y recibos</h1>
+                        <p class="mt-2 text-sm leading-6 text-white/85">Estado de cuenta por equipo, cobros en efectivo, pagos parciales, recibos y control de morosidad.</p>
+                    </div>
+                    <button v-if="permissions.manage" type="button" class="finance-sync" @click="router.post('/liga/finanzas/sincronizar', {}, { preserveScroll: true })">
+                        <AppIcon name="refresh" :size="19" /> Sincronizar fianzas y vencimientos
+                    </button>
+                </div>
+            </header>
+
+            <div class="mt-5 grid gap-4 sm:grid-cols-3">
+                <article class="finance-stat"><div class="finance-stat__icon finance-stat__icon--pending"><AppIcon name="wallet" variant="illustrated" :size="38" /></div><div><p class="finance-stat__label">Saldo pendiente</p><strong class="finance-stat__value">{{ money(summary.outstanding) }}</strong></div></article>
+                <article class="finance-stat finance-stat--collected"><div class="finance-stat__icon finance-stat__icon--collected"><AppIcon name="database" variant="illustrated" :size="38" /></div><div><p class="finance-stat__label">Cobrado</p><strong class="finance-stat__value text-emerald-700">{{ money(summary.collected) }}</strong></div></article>
+                <article class="finance-stat finance-stat--overdue"><div class="finance-stat__icon finance-stat__icon--overdue"><AppIcon name="calendar" variant="illustrated" :size="38" /></div><div><p class="finance-stat__label">Saldo vencido</p><strong class="finance-stat__value text-rose-700">{{ money(summary.overdue) }}</strong></div></article>
             </div>
 
-            <div class="mt-6 grid gap-4 sm:grid-cols-3">
-                <div class="stat-card"><span class="stat-label">Saldo pendiente</span><span class="stat-value">{{ money(summary.outstanding) }}</span></div>
-                <div class="stat-card"><span class="stat-label">Cobrado</span><span class="stat-value">{{ money(summary.collected) }}</span></div>
-                <div class="stat-card"><span class="stat-label">Saldo vencido</span><span class="stat-value text-red-700">{{ money(summary.overdue) }}</span></div>
-            </div>
-
-            <div v-if="permissions.manage" class="mt-6 grid gap-6 xl:grid-cols-3">
-                <form class="card p-5" @submit.prevent="submitConcept">
-                    <h2 class="text-xl font-semibold">Nuevo concepto</h2><p class="mt-1 text-sm text-slate-500">Crea conceptos reutilizables para cuotas, fianzas o multas.</p>
+            <div v-if="permissions.manage" class="finance-workspace mt-5 grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.45fr)_minmax(0,0.95fr)]">
+                <form class="finance-panel" @submit.prevent="submitConcept">
+                    <h2 class="finance-heading"><AppIcon name="badge" :size="22" /> Nuevo concepto</h2><p class="mt-1 text-sm text-slate-500">Crea conceptos reutilizables para cuotas, fianzas o multas.</p>
                     <div class="mt-4"><label class="form-label">Nombre</label><input v-model="conceptForm.name" class="form-input" required><FormError :message="conceptForm.errors.name" /></div>
                     <div class="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-1"><div><label class="form-label">Tipo</label><select v-model="conceptForm.type" class="form-input"><option v-for="(label, value) in typeLabels" :key="value" :value="value">{{ label }}</option></select></div><div><label class="form-label">Importe predeterminado</label><input v-model="conceptForm.default_amount" class="form-input" type="number" min="0.01" step="0.01" required><FormError :message="conceptForm.errors.default_amount" /></div></div>
                     <div class="mt-4"><label class="form-label">Descripción</label><textarea v-model="conceptForm.description" class="form-input" rows="2" /></div>
@@ -192,8 +212,8 @@ function voidPayment(payment: Payment): void {
                     <div v-if="concepts.length" class="mt-5 border-t border-slate-200 pt-4"><div v-for="concept in concepts" :key="concept.id" class="flex items-center justify-between gap-3 py-2 text-sm"><div><strong>{{ concept.name }}</strong><p class="text-xs text-slate-500">{{ typeLabels[concept.type] }} · {{ money(concept.default_amount) }}</p></div><button type="button" class="text-xs font-semibold" :class="concept.active ? 'text-red-700' : 'text-emerald-700'" @click="router.put(`/liga/finanzas/conceptos/${concept.id}/estado`, {}, { preserveScroll: true })">{{ concept.active ? 'Desactivar' : 'Activar' }}</button></div></div>
                 </form>
 
-                <div class="card p-5">
-                    <h2 class="text-xl font-semibold">Asignar adeudo</h2><p class="mt-1 text-sm text-slate-500">Registra un cobro individual o asígnalo simultáneamente a varios equipos.</p>
+                <div class="finance-panel">
+                    <h2 class="finance-heading"><AppIcon name="users" :size="22" /> Asignar adeudo</h2><p class="mt-1 text-sm text-slate-500">Registra un cobro individual o asígnalo simultáneamente a varios equipos.</p>
                     <div class="mt-4 grid grid-cols-2 rounded-xl bg-slate-100 p-1">
                         <button type="button" class="rounded-lg px-3 py-2 text-sm font-semibold transition" :class="chargeMode === 'single' ? 'bg-white text-league-700 shadow-sm' : 'text-slate-600'" @click="chargeMode = 'single'">Un equipo</button>
                         <button type="button" class="rounded-lg px-3 py-2 text-sm font-semibold transition" :class="chargeMode === 'bulk' ? 'bg-white text-league-700 shadow-sm' : 'text-slate-600'" @click="chargeMode = 'bulk'">Varios equipos</button>
@@ -226,7 +246,7 @@ function voidPayment(payment: Payment): void {
                             <div class="mt-3 overflow-hidden rounded-xl border border-slate-200">
                                 <label v-if="filteredParticipations.length" class="flex cursor-pointer items-center gap-3 border-b border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold"><input type="checkbox" :checked="allVisibleSelected" @change="toggleAllVisible"> Seleccionar los {{ filteredParticipations.length }} equipos visibles</label>
                                 <div class="max-h-64 overflow-y-auto divide-y divide-slate-100">
-                                    <label v-for="item in filteredParticipations" :key="item.id" class="flex cursor-pointer items-start gap-3 px-3 py-2.5 hover:bg-slate-50"><input type="checkbox" class="mt-1" :checked="bulkChargeForm.team_participation_ids.includes(item.id)" @change="toggleBulkParticipation(item.id)"><span class="min-w-0 text-sm"><strong class="block">{{ item.team.name }}</strong><span class="block text-xs text-slate-500">{{ item.season.name }} · {{ item.competition.name }}<template v-if="item.division"> · {{ item.division.name }}</template></span></span></label>
+                                    <label v-for="item in filteredParticipations" :key="item.id" class="flex cursor-pointer items-center gap-3 px-3 py-2.5 hover:bg-slate-50"><input type="checkbox" :checked="bulkChargeForm.team_participation_ids.includes(item.id)" @change="toggleBulkParticipation(item.id)"><span class="team-crest team-crest--small"><img v-if="crestUrl(item.team.id)" :src="crestUrl(item.team.id)!" :alt="`Escudo de ${item.team.name}`" loading="lazy" @error="hideBrokenCrest(item.team.id)"><span v-else>{{ teamInitials(item.team.name) }}</span></span><span class="min-w-0 text-sm"><strong class="block">{{ item.team.name }}</strong><span class="block text-xs text-slate-500">{{ item.season.name }} · {{ item.competition.name }}<template v-if="item.division"> · {{ item.division.name }}</template></span></span></label>
                                     <p v-if="!filteredParticipations.length" class="p-4 text-center text-sm text-slate-500">No hay equipos activos con estos filtros.</p>
                                 </div>
                             </div>
@@ -238,9 +258,9 @@ function voidPayment(payment: Payment): void {
                     </form>
                 </div>
 
-                <form class="card p-5" @submit.prevent="submitPayment">
-                    <h2 class="text-xl font-semibold">Registrar pago en efectivo</h2><p class="mt-1 text-sm text-slate-500">Puede aplicarse parcialmente o a varios adeudos.</p>
-                    <div class="mt-4"><label class="form-label">Equipo</label><select v-model.number="paymentForm.team_id" class="form-input" required @change="changePaymentTeam"><option :value="0" disabled>Selecciona...</option><option v-for="team in teamOptions" :key="team.id" :value="team.id">{{ team.name }}</option></select></div>
+                <form class="finance-panel" @submit.prevent="submitPayment">
+                    <h2 class="finance-heading"><AppIcon name="wallet" :size="22" /> Registrar pago en efectivo</h2><p class="mt-1 text-sm text-slate-500">Puede aplicarse parcialmente o a varios adeudos.</p>
+                    <div class="mt-4"><label class="form-label">Equipo</label><select v-model.number="paymentForm.team_id" class="form-input" required @change="changePaymentTeam"><option :value="0" disabled>Selecciona...</option><option v-for="team in teamOptions" :key="team.id" :value="team.id">{{ team.name }}</option></select><div v-if="paymentForm.team_id" class="mt-2 flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2"><span class="team-crest team-crest--small"><img v-if="crestUrl(paymentForm.team_id)" :src="crestUrl(paymentForm.team_id)!" alt="Escudo del equipo seleccionado" @error="hideBrokenCrest(paymentForm.team_id)"><span v-else>{{ teamInitials(teamOptions.find(t => t.id === paymentForm.team_id)?.name ?? 'Equipo') }}</span></span><span class="text-sm font-semibold text-slate-700">{{ teamOptions.find(t => t.id === paymentForm.team_id)?.name }}</span></div></div>
                     <div v-if="paymentForm.team_id" class="mt-4 space-y-2"><p class="form-label">Adeudos a cubrir</p><div v-if="!teamOpenCharges.length" class="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">El equipo no tiene adeudos abiertos.</div><div v-for="charge in teamOpenCharges" :key="charge.id" class="rounded-xl border border-slate-200 p-3"><label class="flex items-start gap-3"><input type="checkbox" class="mt-1" :checked="isSelected(charge.id)" @change="toggleAllocation(charge)"><span class="min-w-0 flex-1 text-sm"><strong>{{ charge.description }}</strong><span class="block text-xs text-slate-500">Saldo {{ money(charge.balance) }} · vence {{ date(charge.due_on) }}</span></span></label><input v-if="allocationIndex(charge.id) >= 0" v-model="paymentForm.allocations[allocationIndex(charge.id)].amount" class="form-input mt-2" type="number" min="0.01" :max="charge.balance" step="0.01"></div></div>
                     <FormError :message="paymentForm.errors.allocations" /><div class="mt-4"><label class="form-label">Fecha y hora</label><input v-model="paymentForm.paid_at" class="form-input" type="datetime-local" required></div><div class="mt-4"><label class="form-label">Observaciones</label><textarea v-model="paymentForm.notes" class="form-input" rows="2" /></div>
                     <div class="mt-4 flex items-center justify-between rounded-xl bg-league-50 p-3"><span class="text-sm font-semibold">Total</span><strong class="text-lg text-league-900">{{ money(paymentTotal) }}</strong></div>
@@ -248,18 +268,45 @@ function voidPayment(payment: Payment): void {
                 </form>
             </div>
 
-            <section class="card mt-6 overflow-hidden">
-                <header class="border-b border-slate-200 p-5"><h2 class="text-xl font-semibold">Estado de cuenta</h2><p class="mt-1 text-sm text-slate-500">Los adeudos cancelados permanecen visibles como historial.</p></header>
+            <section class="finance-table-panel mt-5 overflow-hidden">
+                <header class="border-b border-slate-200 p-5"><h2 class="finance-heading"><AppIcon name="file" :size="22" /> Estado de cuenta</h2><p class="mt-1 text-sm text-slate-500">Los adeudos cancelados permanecen visibles como historial.</p></header>
                 <div v-if="!charges.data.length" class="p-10 text-center text-slate-500">No existen adeudos registrados.</div>
-                <div v-else class="overflow-x-auto"><table class="min-w-full text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-4 py-3 text-left">Equipo / concepto</th><th class="px-4 py-3 text-left">Fechas</th><th class="px-4 py-3 text-right">Importe</th><th class="px-4 py-3 text-right">Saldo</th><th class="px-4 py-3 text-center">Estado</th><th v-if="permissions.manage" class="px-4 py-3"></th></tr></thead><tbody class="divide-y divide-slate-200"><tr v-for="charge in charges.data" :key="charge.id"><td class="px-4 py-4"><strong>{{ charge.team.name }}</strong><p>{{ charge.description }}</p><p class="text-xs text-slate-500">{{ typeLabels[charge.type] }}<span v-if="charge.season"> · {{ charge.season.name }}</span></p></td><td class="px-4 py-4 text-xs"><p>Vence: {{ date(charge.due_on) }}</p><p v-if="charge.grace_until" class="text-slate-500">Prórroga: {{ date(charge.grace_until) }}</p></td><td class="px-4 py-4 text-right">{{ money(charge.original_amount) }}</td><td class="px-4 py-4 text-right font-semibold">{{ money(charge.balance) }}</td><td class="px-4 py-4 text-center"><span class="rounded-full px-2.5 py-1 text-xs font-semibold" :class="statusClasses[charge.status]">{{ statusLabels[charge.status] }}</span></td><td v-if="permissions.manage" class="px-4 py-4 text-right"><button v-if="!['paid', 'cancelled'].includes(charge.status)" type="button" class="text-xs font-semibold text-red-700" @click="cancelCharge(charge)">Cancelar</button></td></tr></tbody></table></div>
+                <div v-else class="overflow-x-auto"><table class="min-w-full text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-4 py-3 text-left">Equipo / concepto</th><th class="px-4 py-3 text-left">Fechas</th><th class="px-4 py-3 text-right">Importe</th><th class="px-4 py-3 text-right">Saldo</th><th class="px-4 py-3 text-center">Estado</th><th v-if="permissions.manage" class="px-4 py-3"></th></tr></thead><tbody class="divide-y divide-slate-200"><tr v-for="charge in charges.data" :key="charge.id"><td class="px-4 py-4"><div class="flex items-center gap-3"><span class="team-crest"><img v-if="crestUrl(charge.team.id)" :src="crestUrl(charge.team.id)!" :alt="`Escudo de ${charge.team.name}`" loading="lazy" @error="hideBrokenCrest(charge.team.id)"><span v-else>{{ teamInitials(charge.team.name) }}</span></span><div><strong>{{ charge.team.name }}</strong><p>{{ charge.description }}</p><p class="text-xs text-slate-500">{{ typeLabels[charge.type] }}<span v-if="charge.season"> · {{ charge.season.name }}</span></p></div></div></td><td class="px-4 py-4 text-xs"><p>Vence: {{ date(charge.due_on) }}</p><p v-if="charge.grace_until" class="text-slate-500">Prórroga: {{ date(charge.grace_until) }}</p></td><td class="px-4 py-4 text-right">{{ money(charge.original_amount) }}</td><td class="px-4 py-4 text-right font-semibold">{{ money(charge.balance) }}</td><td class="px-4 py-4 text-center"><span class="rounded-full px-2.5 py-1 text-xs font-semibold" :class="statusClasses[charge.status]">{{ statusLabels[charge.status] }}</span></td><td v-if="permissions.manage" class="px-4 py-4 text-right"><button v-if="!['paid', 'cancelled'].includes(charge.status)" type="button" class="text-xs font-semibold text-red-700" @click="cancelCharge(charge)">Cancelar</button></td></tr></tbody></table></div>
                 <nav v-if="charges.links.length > 3" class="flex flex-wrap gap-2 border-t border-slate-200 p-4"><Link v-for="link in charges.links" :key="link.label" :href="link.url ?? '#'" class="rounded-lg border px-3 py-1.5 text-sm" :class="link.active ? 'border-league-600 bg-league-600 text-white' : link.url ? 'border-slate-200 bg-white' : 'pointer-events-none border-slate-100 text-slate-400'" preserve-scroll><span v-html="link.label" /></Link></nav>
             </section>
 
-            <section class="card mt-6 overflow-hidden">
-                <header class="border-b border-slate-200 p-5"><h2 class="text-xl font-semibold">Recibos</h2><p class="mt-1 text-sm text-slate-500">Un recibo puede anularse, pero nunca se elimina ni reutiliza su folio.</p></header>
+            <section class="finance-table-panel mt-5 overflow-hidden">
+                <header class="border-b border-slate-200 p-5"><h2 class="finance-heading"><AppIcon name="file" :size="22" /> Recibos</h2><p class="mt-1 text-sm text-slate-500">Un recibo puede anularse, pero nunca se elimina ni reutiliza su folio.</p></header>
                 <div v-if="!payments.length" class="p-10 text-center text-slate-500">Todavía no existen pagos.</div>
-                <div v-else class="divide-y divide-slate-200"><article v-for="payment in payments" :key="payment.id" class="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between"><div><div class="flex flex-wrap items-center gap-2"><strong>{{ payment.receipt_number }}</strong><span v-if="payment.voided_at" class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">Anulado</span></div><p class="mt-1">{{ payment.team.name }} · {{ money(payment.amount) }}</p><p class="text-xs text-slate-500">{{ dateTime(payment.paid_at) }} · Efectivo · {{ payment.receiver?.name }}</p><p class="mt-1 text-xs text-slate-500">{{ payment.allocations.map((item) => item.charge.description).join(' · ') }}</p><p v-if="payment.void_reason" class="mt-1 text-xs text-red-700">{{ payment.void_reason }}</p></div><div class="flex gap-2"><a :href="`/liga/pagos/${payment.id}/recibo.pdf`" class="btn-secondary">Descargar PDF</a><button v-if="permissions.manage && !payment.voided_at" type="button" class="btn-danger" @click="voidPayment(payment)">Anular</button></div></article></div>
+                <div v-else class="divide-y divide-slate-200"><article v-for="payment in payments" :key="payment.id" class="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between"><div><div class="flex flex-wrap items-center gap-2"><strong>{{ payment.receipt_number }}</strong><span v-if="payment.voided_at" class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">Anulado</span></div><div class="mt-2 flex items-center gap-2"><span class="team-crest team-crest--small"><img v-if="crestUrl(payment.team.id)" :src="crestUrl(payment.team.id)!" :alt="`Escudo de ${payment.team.name}`" loading="lazy" @error="hideBrokenCrest(payment.team.id)"><span v-else>{{ teamInitials(payment.team.name) }}</span></span><p>{{ payment.team.name }} · <strong>{{ money(payment.amount) }}</strong></p></div><p class="text-xs text-slate-500">{{ dateTime(payment.paid_at) }} · Efectivo · {{ payment.receiver?.name }}</p><p class="mt-1 text-xs text-slate-500">{{ payment.allocations.map((item) => item.charge.description).join(' · ') }}</p><p v-if="payment.void_reason" class="mt-1 text-xs text-red-700">{{ payment.void_reason }}</p></div><div class="flex gap-2"><a :href="`/liga/pagos/${payment.id}/recibo.pdf`" class="btn-secondary">Descargar PDF</a><button v-if="permissions.manage && !payment.voided_at" type="button" class="btn-danger" @click="voidPayment(payment)">Anular</button></div></article></div>
             </section>
         </section>
     </AppLayout>
 </template>
+
+<style scoped>
+.finance-hero { position: relative; overflow: hidden; border-radius: 26px; background-image: linear-gradient(105deg, rgba(6, 34, 81, .94), rgba(13, 74, 158, .78) 62%, rgba(11, 65, 120, .78)), url('/images/public/league-stadium.jpg'); background-position: center 55%; background-size: cover; border: 1px solid rgba(255,255,255,.38); box-shadow: 0 18px 38px rgba(19,58,110,.15); }
+.finance-sync { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; gap: 10px; min-height: 46px; border: 1px solid rgba(255,255,255,.6); padding: 10px 16px; border-radius: 13px; background: rgba(255,255,255,.95); color: #16488f; font-weight: 750; font-size: 13px; transition: background .2s, transform .2s; }
+.finance-sync:hover { background: #eff6ff; transform: translateY(-1px); }
+.finance-stat { display: flex; min-height: 108px; gap: 14px; align-items: center; border: 1px solid #dae3f1; border-radius: 18px; background: rgba(255,255,255,.97); padding: 18px; box-shadow: 0 9px 26px rgba(24,45,83,.06); }
+.finance-stat--collected { background: linear-gradient(105deg,#ffffff,#effdf5); }
+.finance-stat--overdue { background: linear-gradient(105deg,#ffffff,#fff2f4); }
+.finance-stat__icon { flex-shrink: 0; }
+.finance-stat__label { color: #475569; font-size: 13px; font-weight: 650; }
+.finance-stat__value { display: block; margin-top: 3px; font-size: clamp(21px,2.3vw,29px); font-weight: 800; letter-spacing: -.035em; color: #10284d; font-variant-numeric: tabular-nums; }
+.finance-panel, .finance-table-panel { min-width: 0; border: 1px solid #d9e3f0; border-radius: 20px; background: rgba(255,255,255,.97); box-shadow: 0 14px 32px rgba(22,47,83,.075); }
+.finance-panel { padding: 20px; }
+.finance-heading { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 800; letter-spacing: -.02em; color: #10284d; }
+.finance-panel :deep(.form-label) { color: #29446c; font-weight: 650; font-size: 12px; }
+.finance-panel :deep(.form-input) { min-height: 40px; border-radius: 10px; border-color: #cfdbea; background: #ffffff; font-size: 13px; }
+.finance-panel :deep(textarea.form-input) { min-height: 72px; }
+.finance-panel :deep(.btn-primary) { min-height: 43px; border-radius: 11px; font-size: 13px; font-weight: 750; }
+.finance-table-panel { background: #fff; }
+.finance-table-panel thead { background: #edf3fa; color: #28466b; }
+.finance-table-panel tbody tr:hover { background: #f8fbff; }
+.team-crest { display: inline-flex; flex: 0 0 auto; width: 44px; height: 44px; align-items: center; justify-content: center; overflow: hidden; border: 1px solid #dbe6f3; border-radius: 12px; background: #f1f6fd; color: #24559a; font-size: 12px; font-weight: 800; }
+.team-crest--small { width: 34px; height: 34px; border-radius: 9px; font-size: 10px; }
+.team-crest img { width: 100%; height: 100%; object-fit: contain; padding: 3px; }
+@media (max-width: 1199px) { .finance-workspace { grid-template-columns: repeat(2,minmax(0,1fr)); } .finance-workspace > :nth-child(2) { grid-column: span 2; grid-row: 1; } }
+@media (max-width: 767px) { .finance-workspace { grid-template-columns: minmax(0,1fr); } .finance-workspace > :nth-child(2) { grid-column: auto; grid-row: auto; } .finance-stat { min-height: 96px; } }
+</style>

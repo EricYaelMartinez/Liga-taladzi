@@ -57,7 +57,7 @@ class PlayerController extends Controller
                 'user:id,name,email',
                 'documents:id,player_id,type,original_name,mime_type,size_bytes,retain_until,created_at',
                 'registrations' => fn ($query) => $query->with([
-                    'team:id,name,short_name',
+                    'team:id,name,short_name,crest_path',
                     'teamParticipation.competition.tournament.season:id,name,starts_on,ends_on',
                     'teamParticipation.competition.division:id,name',
                     'teamParticipation.competition.category:id,name',
@@ -65,6 +65,18 @@ class PlayerController extends Controller
                 ])->latest('requested_at'),
                 'movements' => fn ($query) => $query->with(['fromTeam:id,name', 'toTeam:id,name'])->latest('occurred_at'),
             ])->orderBy('full_name')->get();
+
+        // Exponer solo la URL pública del escudo para las tarjetas de solicitudes.
+        // No altera la inscripción ni el contenido almacenado.
+        $players->each(function (Player $player): void {
+            $player->registrations->each(function (PlayerRegistration $registration): void {
+                if ($registration->team) {
+                    $registration->team->setAttribute('crest_url', $registration->team->crest_path
+                        ? Storage::disk('public')->url($registration->team->crest_path)
+                        : null);
+                }
+            });
+        });
 
         if (! $canManage && ! $isPlayer) {
             $players->each->makeHidden([
@@ -310,7 +322,7 @@ class PlayerController extends Controller
             ->whereHas('team', fn ($query) => $query->where('league_id', $league->id))
             ->where('status', 'active')
             ->with([
-                'team:id,name,short_name',
+                'team:id,name,short_name,crest_path',
                 'season:id,name,starts_on,ends_on',
                 'competition:id,name,tournament_id,division_id,category_id',
                 'competition.division:id,name',
@@ -324,6 +336,11 @@ class PlayerController extends Controller
                 ->whereHas('player', fn ($player) => $player->where('status', 'active'))
                 ->whereHas('activeCredential')])
             ->get()
+            ->each(function (TeamParticipation $participation): void {
+                $participation->team->setAttribute('crest_url', $participation->team->crest_path
+                    ? Storage::disk('public')->url($participation->team->crest_path)
+                    : null);
+            })
             ->sortBy(fn (TeamParticipation $participation) => Str::lower($participation->team->name).'|'.$participation->season->starts_on)
             ->values();
     }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import FormError from '../../../components/FormError.vue';
+import AppIcon from '../../../components/AppIcon.vue';
 import AppLayout from '../../../layouts/AppLayout.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
@@ -175,16 +176,19 @@ function transition(match: Match, status: string) { const reason = prompt(`Motiv
     <Head title="Jornadas y programación" />
     <AppLayout>
         <section class="schedule-page">
-            <div class="schedule-hero overflow-hidden rounded-[1.75rem] text-white shadow-2xl shadow-slate-950/20">
+            <div class="schedule-hero overflow-hidden rounded-[1.9rem] text-white shadow-2xl shadow-slate-950/20">
                 <div class="relative z-10 px-6 py-7 sm:px-8 lg:px-10 lg:py-9">
-                    <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-                        <div class="max-w-2xl">
-                            <p class="text-xs font-bold uppercase tracking-[0.24em] text-gold-400">Operación deportiva · Módulo 10.1</p>
-                            <h1 class="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Jornadas y programación</h1>
-                            <p class="mt-2 text-sm text-white/75 sm:text-base">Organiza el calendario, confirma sedes y horarios, y coordina al cuerpo arbitral desde un solo tablero.</p>
+                    <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                        <div class="flex items-start gap-5">
+                            <span class="hero-accent hidden sm:block"></span>
+                            <div class="max-w-2xl">
+                                <p class="text-xs font-bold uppercase tracking-[0.24em] text-sky-100/85">Operación deportiva · Módulo 10.1</p>
+                                <h1 class="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Jornadas y programación</h1>
+                                <p class="mt-2 text-sm text-white/80 sm:text-base">Organiza el calendario, confirma sedes y horarios, y coordina al cuerpo arbitral desde un solo tablero.</p>
+                            </div>
                         </div>
-                        <div v-if="canManage" class="flex flex-wrap gap-2">
-                            <button class="hero-button hero-button-secondary" @click="configurationOpen = true"><span aria-hidden="true">⚙</span> Horarios y capacidad</button>
+                        <div v-if="canManage" class="flex flex-wrap gap-3">
+                            <button class="hero-button hero-button-secondary" @click="configurationOpen = true"><span aria-hidden="true">◫</span> Horarios y capacidad</button>
                             <button class="hero-button hero-button-secondary" @click="openMatchday"><span aria-hidden="true">＋</span> Jornada manual</button>
                             <button class="hero-button hero-button-primary" @click="openGenerate"><span aria-hidden="true">✦</span> Generar jornadas</button>
                         </div>
@@ -192,26 +196,30 @@ function transition(match: Match, status: string) { const reason = prompt(`Motiv
                 </div>
             </div>
 
-            <div class="relative z-10 mx-3 -mt-4 grid gap-3 sm:mx-6 sm:grid-cols-2 xl:grid-cols-4">
+            <div class="relative z-10 mx-4 -mt-4 grid gap-4 sm:mx-6 sm:grid-cols-2 xl:grid-cols-4">
                 <article class="schedule-stat"><span class="schedule-stat-icon bg-league-50 text-league-700">▦</span><div><strong>{{ visibleMatchdays.length }}</strong><p>Jornadas visibles</p></div></article>
-                <article class="schedule-stat"><span class="schedule-stat-icon bg-sky-50 text-sky-700">⚽</span><div><strong>{{ totalMatches }}</strong><p>Partidos registrados</p></div></article>
+                <article class="schedule-stat"><span class="schedule-stat-icon bg-violet-50 text-violet-700">◉</span><div><strong>{{ totalMatches }}</strong><p>Partidos registrados</p></div></article>
                 <article class="schedule-stat"><span class="schedule-stat-icon bg-emerald-50 text-emerald-700">✓</span><div><strong>{{ scheduledMatches }}</strong><p>Con horario definido</p></div></article>
-                <article class="schedule-stat"><span class="schedule-stat-icon bg-amber-50 text-amber-700">◇</span><div><strong>{{ pendingReferees }}</strong><p>Árbitros pendientes</p></div></article>
+                <article class="schedule-stat"><span class="schedule-stat-icon bg-amber-50 text-amber-700">◌</span><div><strong>{{ pendingReferees }}</strong><p>Árbitros pendientes</p></div></article>
             </div>
 
-            <div class="mt-7 rounded-2xl border border-white/80 bg-white/95 p-4 shadow-md shadow-slate-900/5 backdrop-blur sm:p-5">
-                <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
+            <div class="filter-shell mt-7">
+                <div class="filter-shell-title">
+                    <span class="filter-shell-icon">⌁</span>
+                    <span>Filtros de programación</span>
+                </div>
+                <div class="grid flex-1 gap-4 xl:grid-cols-[minmax(0,1.2fr)_auto] xl:items-end">
                     <div>
-                        <label class="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-500"><span class="text-league-700">⌕</span> Competencia</label>
+                        <label class="mb-2 block text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Competencia</label>
                         <select v-model="competitionFilter" class="form-input">
                             <option value="all">Todas las competencias</option>
                             <option v-for="competition in competitions" :key="competition.id" :value="competition.id">{{ competition.name }} · {{ competition.division.name }} · {{ statuses[competition.status] ?? competition.status }}</option>
                         </select>
                     </div>
-                    <label class="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:border-league-600 hover:bg-league-50">
+                    <label class="filter-toggle">
                         <input v-model="showTerminalMatchdays" type="checkbox" class="h-4 w-4 accent-league-700">
-                        <span>Mostrar jornadas finalizadas y canceladas</span>
-                        <span v-if="cancelledMatches" class="ml-auto rounded-full bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-700">{{ cancelledMatches }}</span>
+                        <span class="min-w-0">Mostrar jornadas finalizadas y canceladas</span>
+                        <span v-if="cancelledMatches" class="filter-badge">{{ cancelledMatches }}</span>
                     </label>
                 </div>
             </div>
@@ -223,20 +231,22 @@ function transition(match: Match, status: string) { const reason = prompt(`Motiv
                 <button v-if="canManage" class="btn-primary mt-5" @click="openGenerate">Generar jornadas</button>
             </div>
 
-            <div v-else class="mt-7 space-y-5">
+            <div v-else class="mt-7 space-y-6">
                 <article v-for="matchday in visibleMatchdays" :key="matchday.id" class="matchday-card">
                     <header class="matchday-header">
                         <button class="flex min-w-0 flex-1 items-start gap-4 text-left" :aria-expanded="expandedMatchdays.has(matchday.id)" @click="toggleMatchday(matchday.id)">
-                            <span class="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-league-900 text-white shadow-md shadow-league-900/20"><span class="text-[10px] font-bold uppercase tracking-wide">JOR</span><strong class="-mt-1 text-lg">{{ matchday.number }}</strong></span>
+                            <span class="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-league-700 text-white shadow-md shadow-league-900/20"><span class="text-[10px] font-bold uppercase tracking-wide">JOR</span><strong class="-mt-1 text-lg">{{ matchday.number }}</strong></span>
                             <span class="min-w-0">
                                 <span class="flex flex-wrap items-center gap-2"><strong class="text-xl text-slate-900">{{ matchday.name }}</strong><span class="rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ring-1 ring-inset" :class="matchdayStatusClass(matchday.status)">{{ statuses[matchday.status] }}</span><span class="rounded-full bg-league-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-league-700">{{ phases[matchday.phase] }}</span></span>
                                 <span class="mt-1.5 block truncate text-sm text-slate-500">{{ matchday.competition.name }} · {{ competitionById(matchday.competition_id)?.division.name ?? 'División' }} · {{ matchday.starts_on ? localDate(matchday.starts_on) : 'Fecha general pendiente' }}</span>
                             </span>
                         </button>
                         <div class="flex items-center gap-3 pl-16 sm:pl-0">
-                            <div class="hidden min-w-32 sm:block"><div class="flex justify-between text-[10px] font-bold uppercase tracking-wide text-slate-400"><span>Preparación</span><span>{{ matchdayProgress(matchday) }}%</span></div><div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-league-600 transition-all" :style="{ width: `${matchdayProgress(matchday)}%` }"></div></div></div>
-                            <span class="text-xs font-semibold text-slate-500">{{ matchday.matches.length }} partidos</span>
-                            <button class="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 text-slate-500 transition hover:border-league-600 hover:text-league-700" :aria-label="expandedMatchdays.has(matchday.id) ? 'Contraer jornada' : 'Expandir jornada'" @click="toggleMatchday(matchday.id)"><span class="transition-transform" :class="expandedMatchdays.has(matchday.id) ? 'rotate-180' : ''">⌄</span></button>
+                            <div class="hidden min-w-40 sm:block"><div class="flex justify-between text-[10px] font-bold uppercase tracking-wide text-slate-400"><span>Preparación</span><span>{{ matchdayProgress(matchday) }}%</span></div><div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-league-600 transition-all" :style="{ width: `${matchdayProgress(matchday)}%` }"></div></div></div>
+                            <span class="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-slate-700"><AppIcon name="football" :size="18" /> {{ matchday.matches.length }} partidos</span>
+                            <button type="button" class="matchday-chevron" :aria-label="expandedMatchdays.has(matchday.id) ? 'Contraer jornada' : 'Expandir jornada'" :aria-expanded="expandedMatchdays.has(matchday.id)" @click="toggleMatchday(matchday.id)">
+                                <svg class="h-5 w-5 transition-transform duration-200" :class="expandedMatchdays.has(matchday.id) ? 'rotate-180' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+                            </button>
                         </div>
                     </header>
 
@@ -247,7 +257,7 @@ function transition(match: Match, status: string) { const reason = prompt(`Motiv
                         </div>
                         <div v-if="!matchday.matches.length" class="px-6 py-12 text-center"><p class="font-semibold text-slate-700">Jornada sin partidos</p><p class="mt-1 text-sm text-slate-500">Agrega al menos un encuentro para poder publicarla.</p></div>
                         <div v-else class="space-y-3 bg-slate-50/70 p-3 sm:p-5">
-                            <section v-for="match in matchday.matches" :key="match.id" class="match-card">
+                            <section v-for="match in matchday.matches" :key="match.id" class="match-card" :class="match.status === 'scheduled' ? 'match-card--scheduled' : ''">
                                 <div class="match-time" :class="match.status === 'cancelled' ? 'opacity-60' : ''">
                                     <span class="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">{{ matchDateParts(match.scheduled_at).month }}</span>
                                     <strong class="text-2xl leading-none text-league-900">{{ matchDateParts(match.scheduled_at).day }}</strong>
@@ -268,13 +278,33 @@ function transition(match: Match, status: string) { const reason = prompt(`Motiv
                                     <p v-if="match.public_notes" class="mt-3 rounded-lg border-l-2 border-gold-500 bg-gold-400/10 px-3 py-2 text-xs text-slate-600">{{ match.public_notes }}</p>
                                 </div>
                                 <div v-if="canManage && competitionIsManageable(matchday.competition_id)" class="match-actions">
-                                    <button v-if="['draft', 'scheduled', 'postponed', 'suspended'].includes(match.status)" class="schedule-action" @click="openSchedule(match)">{{ match.scheduled_at ? 'Cambiar horario/campo' : 'Programar' }}</button>
-                                    <button v-if="match.scheduled_at && ['draft', 'scheduled', 'postponed', 'suspended'].includes(match.status)" class="schedule-action" @click="openReferees(matchday, match)">{{ assignment(match, 'central') ? 'Árbitros' : 'Asignar árbitro' }}</button>
-                                    <button v-if="match.status === 'cancelled'" class="schedule-action border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-400" @click="openReopen(matchday, match)">Reabrir</button>
-                                    <button v-if="match.status === 'scheduled'" class="schedule-action" @click="transition(match, 'in_progress')">Iniciar</button>
-                                    <button v-if="match.status === 'scheduled'" class="schedule-action" @click="transition(match, 'postponed')">Aplazar</button>
-                                    <button v-if="match.status === 'in_progress'" class="schedule-action" @click="transition(match, 'suspended')">Suspender</button>
-                                    <button v-if="['scheduled', 'in_progress', 'suspended', 'postponed'].includes(match.status)" class="schedule-action border-rose-200 text-rose-700 hover:border-rose-400 hover:bg-rose-50" @click="transition(match, 'cancelled')">Cancelar</button>
+                                    <button v-if="match.status === 'cancelled'" type="button" class="match-action-button action-reopen" @click="openReopen(matchday, match)">
+                                        <AppIcon name="refresh" :size="18" /> Reabrir
+                                    </button>
+                                    <template v-else>
+                                        <div v-if="['draft', 'scheduled', 'postponed', 'suspended'].includes(match.status)" class="match-actions-primary">
+                                            <button type="button" class="match-action-button action-outline" @click="openSchedule(match)">
+                                                <AppIcon name="calendar" :size="17" /> <span>{{ match.scheduled_at ? 'Cambiar horario/campo' : 'Programar' }}</span>
+                                            </button>
+                                            <button v-if="match.scheduled_at" type="button" class="match-action-button action-outline" @click="openReferees(matchday, match)">
+                                                <AppIcon name="users" :size="17" /> {{ assignment(match, 'central') ? 'Árbitros' : 'Asignar árbitro' }}
+                                            </button>
+                                        </div>
+                                        <div class="match-actions-secondary">
+                                            <button v-if="match.status === 'scheduled'" type="button" class="match-action-button action-start" @click="transition(match, 'in_progress')">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="h-[18px] w-[18px]"><path d="m8 5 11 7-11 7V5Z" /></svg> Iniciar
+                                            </button>
+                                            <button v-if="match.status === 'scheduled'" type="button" class="match-action-button action-postpone" @click="transition(match, 'postponed')">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true" class="h-[18px] w-[18px]"><path d="M9 5v14M15 5v14" /></svg> Aplazar
+                                            </button>
+                                            <button v-if="match.status === 'in_progress'" type="button" class="match-action-button action-postpone" @click="transition(match, 'suspended')">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true" class="h-[18px] w-[18px]"><path d="M9 5v14M15 5v14" /></svg> Suspender
+                                            </button>
+                                            <button v-if="['scheduled', 'in_progress', 'suspended', 'postponed'].includes(match.status)" type="button" class="match-action-button action-cancel" @click="transition(match, 'cancelled')">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true" class="h-[18px] w-[18px]"><path d="M5 5l14 14M19 5 5 19" /></svg> Cancelar
+                                            </button>
+                                        </div>
+                                    </template>
                                 </div>
                             </section>
                         </div>
@@ -304,28 +334,44 @@ function transition(match: Match, status: string) { const reason = prompt(`Motiv
 
 .schedule-hero {
     position: relative;
-    background-image: linear-gradient(105deg, color-mix(in srgb, var(--color-league-900) 96%, #07152b), color-mix(in srgb, var(--color-league-600) 72%, transparent)), url('/images/public/league-stadium.jpg');
+    background-image: linear-gradient(102deg, rgba(7, 35, 82, 0.95) 0%, rgba(18, 89, 187, 0.82) 62%, rgba(11, 76, 171, 0.78) 100%), url('/images/public/league-stadium.jpg');
     background-position: center 58%;
     background-size: cover;
 }
-.schedule-hero::after { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 85% 20%, rgba(197, 160, 89, .22), transparent 28%), linear-gradient(90deg, rgba(4, 15, 30, .22), transparent 70%); }
-.hero-button { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition focus:outline-none focus:ring-3 focus:ring-white/25; }
-.hero-button-primary { @apply bg-gold-500 text-league-900 shadow-lg shadow-slate-950/20 hover:bg-gold-400; }
-.hero-button-secondary { @apply border border-white/25 bg-white/10 text-white backdrop-blur hover:bg-white/20; }
-.schedule-stat { @apply flex min-h-24 items-center gap-4 rounded-2xl border border-white/80 bg-white/95 p-4 shadow-lg shadow-slate-900/8 backdrop-blur; }
-.schedule-stat-icon { @apply grid h-11 w-11 shrink-0 place-items-center rounded-xl text-lg font-black; }
-.schedule-stat strong { @apply block text-2xl font-bold text-slate-900; }
-.schedule-stat p { @apply mt-0.5 text-xs font-semibold text-slate-500; }
-.matchday-card { @apply overflow-hidden rounded-2xl border border-white/80 bg-white/95 shadow-md shadow-slate-900/5 backdrop-blur transition hover:shadow-lg; }
-.matchday-header { @apply flex flex-col justify-between gap-4 px-5 py-5 sm:flex-row sm:items-center sm:px-6; }
-.match-card { @apply grid gap-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:shadow-md lg:grid-cols-[5.5rem_minmax(0,1fr)_auto] lg:items-center; }
-.match-time { @apply flex min-h-24 flex-row items-center justify-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-3 py-3 lg:flex-col lg:gap-0; }
+.schedule-hero::after { content: ''; position: absolute; inset: 0; background: linear-gradient(120deg, rgba(255,255,255,.05) 18%, transparent 18%, transparent 56%, rgba(255,255,255,.05) 56%, transparent 78%), radial-gradient(circle at 84% 12%, rgba(255,255,255,.12), transparent 18%); }
+.hero-accent { width: 6px; min-height: 74px; border-radius: 999px; background: linear-gradient(180deg, rgba(68,165,255,.95), rgba(68,165,255,.18)); box-shadow: 0 0 0 1px rgba(255,255,255,.08); }
+.hero-button { @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl px-5 py-2.5 text-sm font-bold transition focus:outline-none focus:ring-3 focus:ring-white/25; }
+.hero-button-primary { background: linear-gradient(135deg, #ff3bbd, #f21894); @apply border border-fuchsia-300/40 text-white shadow-lg shadow-fuchsia-950/20 hover:brightness-110; }
+.hero-button-secondary { @apply border border-white/75 bg-slate-950/10 text-white backdrop-blur hover:bg-white/12; }
+.schedule-stat { @apply flex min-h-24 items-center gap-4 rounded-[1.55rem] border border-white/80 bg-white/95 p-5 shadow-md shadow-slate-900/7 backdrop-blur; }
+.schedule-stat-icon { @apply grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-slate-100 text-lg font-black shadow-sm; }
+.schedule-stat strong { @apply block text-[2.05rem] font-bold leading-none text-slate-900; }
+.schedule-stat p { @apply mt-1 text-sm font-medium text-slate-600; }
+.filter-shell { @apply flex flex-col gap-4 rounded-[1.7rem] border border-white/80 bg-white/95 p-4 shadow-md shadow-slate-900/5 backdrop-blur xl:flex-row xl:items-center xl:p-5; }
+.filter-shell-title { @apply flex items-center gap-3 border-slate-200 pr-0 text-xl font-bold text-slate-900 xl:min-w-72 xl:border-r xl:pr-6; }
+.filter-shell-icon { @apply grid h-11 w-11 place-items-center rounded-2xl bg-league-50 text-xl font-black text-league-700; }
+.filter-toggle { @apply flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-league-600 hover:bg-league-50; }
+.filter-badge { @apply ml-auto rounded-full bg-rose-100 px-2.5 py-1 text-xs font-bold text-rose-700; }
+.matchday-card { @apply overflow-hidden rounded-[1.7rem] border border-white/80 bg-white/95 shadow-md shadow-slate-900/5 backdrop-blur transition hover:shadow-lg; }
+.matchday-header { @apply flex flex-col justify-between gap-4 px-5 py-5 sm:flex-row sm:items-center sm:px-6 sm:py-5; }
+.match-card { @apply grid gap-4 rounded-[1.35rem] border border-slate-200/80 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:shadow-md lg:grid-cols-[6rem_minmax(0,1fr)_24rem] lg:items-center; }
+.match-time { @apply flex min-h-24 flex-row items-center justify-center gap-2 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3 lg:flex-col lg:gap-0; }
 .team-block { @apply flex min-w-0 items-center justify-center gap-3 text-center text-sm text-slate-900 sm:text-base; }
 .team-block strong { @apply min-w-0 break-words; }
 .team-crest { @apply grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl border border-slate-200 bg-white text-[10px] font-black text-league-700 shadow-sm; }
 .team-crest img { @apply h-full w-full object-contain p-1; }
 .meta-chip { @apply inline-flex items-center gap-1.5 rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-1.5; }
-.match-actions { @apply flex flex-wrap gap-2 border-t border-slate-100 pt-3 lg:max-w-48 lg:flex-col lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0; }
+.matchday-chevron { @apply grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-league-900 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500; }
+.match-card--scheduled { border-color: #60a5fa; box-shadow: 0 1px 5px rgba(59,130,246,.08); }
+.match-actions { @apply flex flex-col items-stretch justify-center gap-3 border-t border-slate-200 pt-3 lg:w-[24rem] lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0; }
+.match-actions-primary { @apply flex flex-wrap justify-end gap-2; }
+.match-actions-secondary { @apply flex flex-wrap justify-end gap-2; }
+.match-action-button { @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold whitespace-nowrap shadow-sm transition duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500; }
+.action-outline { @apply border-blue-200 bg-white text-slate-800 hover:border-blue-400 hover:bg-blue-50; }
+.action-reopen { @apply self-center border-blue-300 bg-white text-blue-700 hover:border-blue-500 hover:bg-blue-50; }
+.action-start { @apply border-emerald-200 bg-emerald-50 text-emerald-800 hover:border-emerald-400 hover:bg-emerald-100; }
+.action-postpone { @apply border-amber-200 bg-amber-50 text-amber-800 hover:border-amber-400 hover:bg-amber-100; }
+.action-cancel { @apply border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-400 hover:bg-rose-100; }
 .schedule-action { @apply inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 transition hover:border-league-600 hover:bg-league-50 hover:text-league-700; }
 .match-status { @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ring-1 ring-inset; }
 .status-neutral { @apply bg-slate-100 text-slate-600 ring-slate-200; }

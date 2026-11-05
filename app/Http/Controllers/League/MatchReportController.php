@@ -20,6 +20,7 @@ use App\Support\LeagueContext;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -161,7 +162,11 @@ class MatchReportController extends Controller
         return [
             'id' => $participation->id,
             'name' => $participation->registered_name,
-            'team' => $participation->team,
+            'team' => [
+                'id' => $participation->team->id,
+                'name' => $participation->team->name,
+                'crest_url' => $participation->team->crest_path ? Storage::disk('public')->url($participation->team->crest_path) : null,
+            ],
             'has_submitted_lineup' => (bool) $lineup,
             'players' => $players,
         ];
@@ -174,7 +179,7 @@ class MatchReportController extends Controller
 
     private function matchRelations(): array
     {
-        return ['competition:id,name', 'matchday:id,name,number', 'field.venue:id,name', 'refereeAssignments:id,match_id,referee_id,role', 'refereeAssignments.referee:id,user_id', 'refereeAssignments.referee.user:id,name', 'homeParticipation.team:id,name,short_name', 'awayParticipation.team:id,name,short_name', 'homeParticipation.playerRegistrations' => fn ($query) => $query->where('status', 'active')->whereHas('player', fn ($player) => $player->where('status', 'active'))->with('player:id,full_name,position,status')->orderBy('jersey_number'), 'awayParticipation.playerRegistrations' => fn ($query) => $query->where('status', 'active')->whereHas('player', fn ($player) => $player->where('status', 'active'))->with('player:id,full_name,position,status')->orderBy('jersey_number'), 'lineups.players' => fn ($query) => $query->with('registration.player:id,full_name')->orderBy('display_order'), 'report.events.playerRegistration.player:id,full_name', 'report.events.relatedPlayerRegistration.player:id,full_name', 'report.events.teamParticipation:id,registered_name', 'report.confirmations.representative:id,name', 'report.confirmations.teamParticipation:id,registered_name'];
+        return ['competition:id,name', 'matchday:id,name,number', 'field.venue:id,name', 'refereeAssignments:id,match_id,referee_id,role', 'refereeAssignments.referee:id,user_id', 'refereeAssignments.referee.user:id,name', 'homeParticipation.team:id,name,short_name,crest_path', 'awayParticipation.team:id,name,short_name,crest_path', 'homeParticipation.playerRegistrations' => fn ($query) => $query->where('status', 'active')->whereHas('player', fn ($player) => $player->where('status', 'active'))->with('player:id,full_name,position,status')->orderBy('jersey_number'), 'awayParticipation.playerRegistrations' => fn ($query) => $query->where('status', 'active')->whereHas('player', fn ($player) => $player->where('status', 'active'))->with('player:id,full_name,position,status')->orderBy('jersey_number'), 'lineups.players' => fn ($query) => $query->with('registration.player:id,full_name')->orderBy('display_order'), 'report.events.playerRegistration.player:id,full_name', 'report.events.relatedPlayerRegistration.player:id,full_name', 'report.events.teamParticipation:id,registered_name', 'report.confirmations.representative:id,name', 'report.confirmations.teamParticipation:id,registered_name'];
     }
 
     private function authorizeEdit(Request $request, GameMatch $match, League $league): void

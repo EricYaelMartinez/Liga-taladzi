@@ -8,6 +8,7 @@ use App\Domain\Discipline\Models\Sanction;
 use App\Domain\Scheduling\Enums\MatchReportStatus;
 use App\Domain\Scheduling\Models\MatchReport;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
 
 class CompetitionStatisticsService
 {
@@ -24,14 +25,14 @@ class CompetitionStatisticsService
             ))
             ->with([
                 'match.matchday:id,name,number',
-                'match.homeParticipation.team:id,name,short_name',
-                'match.awayParticipation.team:id,name,short_name',
+                'match.homeParticipation.team:id,name,short_name,crest_path',
+                'match.awayParticipation.team:id,name,short_name,crest_path',
                 'events.playerRegistration.player:id,full_name',
-                'events.teamParticipation.team:id,name,short_name',
+                'events.teamParticipation.team:id,name,short_name,crest_path',
             ])->get();
 
         $standings = $competition->teamParticipations->mapWithKeys(fn ($participation) => [
-            $participation->id => $this->emptyStanding($participation->id, $participation->registered_name, $participation->team?->short_name),
+            $participation->id => $this->emptyStanding($participation->id, $participation->registered_name, $participation->team?->short_name, $this->crestUrl($participation->team?->crest_path)),
         ])->all();
         $directMatches = [];
         $results = [];
@@ -42,8 +43,8 @@ class CompetitionStatisticsService
             $match = $report->match;
             $homeId = $match->home_team_participation_id;
             $awayId = $match->away_team_participation_id;
-            $standings[$homeId] ??= $this->emptyStanding($homeId, $match->homeParticipation->registered_name, $match->homeParticipation->team?->short_name);
-            $standings[$awayId] ??= $this->emptyStanding($awayId, $match->awayParticipation->registered_name, $match->awayParticipation->team?->short_name);
+            $standings[$homeId] ??= $this->emptyStanding($homeId, $match->homeParticipation->registered_name, $match->homeParticipation->team?->short_name, $this->crestUrl($match->homeParticipation->team?->crest_path));
+            $standings[$awayId] ??= $this->emptyStanding($awayId, $match->awayParticipation->registered_name, $match->awayParticipation->team?->short_name, $this->crestUrl($match->awayParticipation->team?->crest_path));
 
             $this->applyResult($standings[$homeId], $standings[$awayId], $report->home_score, $report->away_score, $regulation);
             $directMatches[] = ['home_id' => $homeId, 'away_id' => $awayId, 'home_score' => $report->home_score, 'away_score' => $report->away_score];
@@ -55,12 +56,12 @@ class CompetitionStatisticsService
                 }
                 if ($event->type === 'goal' && $event->player_registration_id && $event->playerRegistration?->player) {
                     $key = $event->player_registration_id;
-                    $scorers[$key] ??= ['registration_id' => $key, 'player' => $event->playerRegistration->player->full_name, 'team' => $event->teamParticipation?->registered_name ?? 'Sin equipo', 'goals' => 0];
+                    $scorers[$key] ??= ['registration_id' => $key, 'player' => $event->playerRegistration->player->full_name, 'team' => $event->teamParticipation?->registered_name ?? 'Sin equipo', 'crest_url' => $this->crestUrl($event->teamParticipation?->team?->crest_path), 'goals' => 0];
                     $scorers[$key]['goals']++;
                 }
                 if (in_array($event->type, ['yellow_card', 'second_yellow', 'red_card'], true) && $event->player_registration_id && $event->playerRegistration?->player) {
                     $key = $event->player_registration_id;
-                    $discipline[$key] ??= ['registration_id' => $key, 'player' => $event->playerRegistration->player->full_name, 'team' => $event->teamParticipation?->registered_name ?? 'Sin equipo', 'yellow_cards' => 0, 'second_yellows' => 0, 'red_cards' => 0, 'fair_play_points' => 0];
+                    $discipline[$key] ??= ['registration_id' => $key, 'player' => $event->playerRegistration->player->full_name, 'team' => $event->teamParticipation?->registered_name ?? 'Sin equipo', 'crest_url' => $this->crestUrl($event->teamParticipation?->team?->crest_path), 'yellow_cards' => 0, 'second_yellows' => 0, 'red_cards' => 0, 'fair_play_points' => 0];
                     if ($event->type === 'yellow_card') $discipline[$key]['yellow_cards']++;
                     if ($event->type === 'second_yellow') $discipline[$key]['second_yellows']++;
                     if ($event->type === 'red_card') $discipline[$key]['red_cards']++;
@@ -73,7 +74,9 @@ class CompetitionStatisticsService
                 'matchday' => $match->matchday?->name,
                 'scheduled_at' => $match->scheduled_at?->toIso8601String(),
                 'home_team' => $match->homeParticipation->registered_name,
+                'home_crest_url' => $this->crestUrl($match->homeParticipation->team?->crest_path),
                 'away_team' => $match->awayParticipation->registered_name,
+                'away_crest_url' => $this->crestUrl($match->awayParticipation->team?->crest_path),
                 'home_score' => $report->home_score,
                 'away_score' => $report->away_score,
                 'home_no_show' => $report->home_no_show,
@@ -114,9 +117,14 @@ class CompetitionStatisticsService
         ];
     }
 
-    private function emptyStanding(int $id, string $name, ?string $shortName): array
+    private function crestUrl(?string $path): ?string
     {
-        return ['team_participation_id' => $id, 'team' => $name, 'short_name' => $shortName ?: $name, 'played' => 0, 'won' => 0, 'drawn' => 0, 'lost' => 0, 'goals_for' => 0, 'goals_against' => 0, 'goal_difference' => 0, 'points' => 0, 'points_deducted' => 0, 'fair_play_points' => 0];
+        return $path ? Storage::disk('public')->url($path) : null;
+    }
+
+    private function emptyStanding(int $id, string $name, ?string $shortName, ?string $crestUrl): array
+    {
+        return ['team_participation_id' => $id, 'team' => $name, 'short_name' => $shortName ?: $name, 'crest_url' => $crestUrl, 'played' => 0, 'won' => 0, 'drawn' => 0, 'lost' => 0, 'goals_for' => 0, 'goals_against' => 0, 'goal_difference' => 0, 'points' => 0, 'points_deducted' => 0, 'fair_play_points' => 0];
     }
 
     private function applyResult(array &$home, array &$away, int $homeScore, int $awayScore, Regulation $regulation): void
