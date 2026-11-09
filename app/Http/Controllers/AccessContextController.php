@@ -8,6 +8,7 @@ use App\Domain\League\Models\LeagueMembership;
 use App\Support\LeagueContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -48,7 +49,19 @@ class AccessContextController extends Controller
 
         return Inertia::render('Access/Select', [
             'canUseSystemAdministration' => $user->hasRole('system_admin'),
-            'options' => $options,
+            'options' => $options->map(function (array $option) {
+                $league = $option['league'];
+                return [
+                    'league' => [
+                        'id' => $league->id,
+                        'name' => $league->name,
+                        'logo_url' => $league->logo_path ? Storage::disk('public')->url($league->logo_path) : null,
+                        'primary_color' => $league->primary_color,
+                        'secondary_color' => $league->secondary_color,
+                    ],
+                    'role' => $option['role'],
+                ];
+            })->values(),
         ]);
     }
 
