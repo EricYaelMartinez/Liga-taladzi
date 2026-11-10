@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import FormError from '../../../components/FormError.vue';
 import AppIcon from '../../../components/AppIcon.vue';
+import FormError from '../../../components/FormError.vue';
 import AppLayout from '../../../layouts/AppLayout.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
@@ -36,376 +36,302 @@ const form = useForm({
 
 const bufferEnabled = ref(props.settings.schedule_buffer_minutes !== null);
 const paymentGraceEnabled = ref(props.settings.payment_grace_days !== null);
+const activeSection = ref('duracion');
+const sectionLinks = [
+    { id: 'duracion', label: 'Duración del partido', icon: 'clock' },
+    { id: 'programacion', label: 'Programación y apelaciones', icon: 'calendar' },
+    { id: 'finanzas', label: 'Pagos y reactivación', icon: 'wallet' },
+    { id: 'registro', label: 'Registro del cambio', icon: 'file' },
+];
 
 watch(bufferEnabled, (enabled) => {
-    form.schedule_buffer_minutes = enabled ? (form.schedule_buffer_minutes ?? 0) : null;
+    form.schedule_buffer_minutes = enabled ? (form.schedule_buffer_minutes ?? 15) : null;
 });
 watch(paymentGraceEnabled, (enabled) => {
     form.payment_grace_days = enabled ? (form.payment_grace_days ?? 0) : null;
 });
 watch(() => form.bond_enabled, (enabled) => {
     if (!enabled) form.bond_amount = null;
+    else if (form.bond_amount === null) form.bond_amount = '0';
 });
 
-const estimatedDuration = computed(() => {
-    if (!form.period_duration_minutes) return null;
-    return (form.match_periods * form.period_duration_minutes) + (Math.max(form.match_periods - 1, 0) * (form.halftime_minutes ?? 0));
+const periods = computed(() => Math.max(1, Math.min(4, Number(form.match_periods) || 1)));
+const periodMinutes = computed(() => Math.max(0, Number(form.period_duration_minutes) || 0));
+const breakMinutes = computed(() => Math.max(0, Number(form.halftime_minutes) || 0));
+const estimatedDuration = computed(() => (periods.value * periodMinutes.value) + ((periods.value - 1) * breakMinutes.value));
+const timeline = computed(() => {
+    const result: { label: string; minutes: number; rest: boolean; key: string }[] = [];
+    for (let i = 1; i <= periods.value; i++) {
+        result.push({ label: `${i}.º tiempo · ${periodMinutes.value} min`, minutes: periodMinutes.value, rest: false, key: `time-${i}` });
+        if (i < periods.value && breakMinutes.value > 0) result.push({ label: `Descanso · ${breakMinutes.value} min`, minutes: breakMinutes.value, rest: true, key: `break-${i}` });
+    }
+    return result;
 });
 
-const durationSummary = computed(() => {
-    if (!estimatedDuration.value) return 'Completa los datos para estimar la duración total del partido.';
-    return `${form.match_periods} ${form.match_periods === 1 ? 'tiempo' : 'tiempos'} de ${form.period_duration_minutes} min${(form.halftime_minutes ?? 0) > 0 ? ` + ${form.halftime_minutes} min de descanso` : ''}.`;
-});
+function navigateTo(id: string) {
+    activeSection.value = id;
+    document.getElementById(`op-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+function discard() {
+    form.reset();
+    form.clearErrors();
+    bufferEnabled.value = props.settings.schedule_buffer_minutes !== null;
+    paymentGraceEnabled.value = props.settings.payment_grace_days !== null;
+}
+function save() {
+    form.put('/liga/parametros', {
+        preserveScroll: true,
+        onSuccess: () => {
+            // Inertia updates props from the backend; keep current inputs as the new baseline.
+            form.defaults();
+            form.reason = '';
+            form.defaults('reason', '');
+        },
+    });
+}
 </script>
 
 <template>
     <Head title="Parámetros generales" />
     <AppLayout>
-        <section class="mx-auto max-w-6xl">
-            <div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-                <div class="flex items-start gap-4">
-                    <div class="header-icon-shell">
-                        <AppIcon name="sliders" variant="illustrated" :size="54" />
+        <div class="operational-page mx-auto max-w-[1440px] pb-8">
+            <header class="operational-hero">
+                <div class="operational-hero-content">
+                    <div class="op-hero-icon"><AppIcon name="sliders" :size="29" /></div>
+                    <div class="min-w-0 flex-1">
+                        <p class="op-eyebrow">Configuración · Reglas base</p>
+                        <h1 class="mt-1 text-2xl font-extrabold tracking-tight text-white sm:text-3xl">Parámetros generales</h1>
+                        <p class="mt-2 max-w-3xl text-sm text-white/85">Define los valores predeterminados para la programación, apelaciones y condiciones administrativas de esta liga.</p>
                     </div>
-                    <div>
-                        <p class="text-xs font-extrabold uppercase tracking-[0.24em] text-league-600">Configuración • Reglas base</p>
-                        <h1 class="mt-2 text-3xl font-bold tracking-tight text-slate-900 sm:text-[2.35rem]">Parámetros generales</h1>
-                        <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600 sm:text-base">
-                            Define los valores predeterminados que utilizará esta liga en la programación, apelaciones y condiciones administrativas.
-                        </p>
+                    <div class="op-hero-context hidden items-center gap-3 lg:flex">
+                        <AppIcon name="settings" :size="20" />
+                        <span>Configuración de la liga</span>
+                        <span class="op-hero-status"><span class="op-dot"></span>{{ isConfigured ? 'Activa' : 'Por configurar' }}</span>
                     </div>
                 </div>
+            </header>
 
-                <button class="btn-primary inline-flex min-h-12 items-center justify-center gap-2 px-5 py-3 lg:mt-2" type="submit" form="operational-settings-form" :disabled="form.processing">
-                    <AppIcon name="check" :size="16" />
-                    {{ form.processing ? 'Guardando…' : 'Guardar parámetros' }}
-                </button>
+            <div v-if="!isConfigured" class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-900">
+                La duración del partido todavía no ha sido definida. Guarda este formulario antes de crear competencias.
+            </div>
+            <div class="op-notice mt-4" role="note">
+                <AppIcon name="badge" :size="19" />
+                <p>Cuando se cree un torneo, sus reglas copiarán estos valores y quedarán versionadas. Los cambios no modificarán torneos históricos.</p>
             </div>
 
-            <div class="mt-6 space-y-3">
-                <div v-if="!isConfigured" class="notice-card notice-card--warning">
-                    <AppIcon name="clock" :size="18" />
-                    <span>La duración del partido todavía no ha sido definida. Guarda este formulario antes de crear competencias.</span>
-                </div>
-                <div class="notice-card notice-card--info">
-                    <AppIcon name="file" :size="18" />
-                    <span>Cuando se cree un torneo, sus reglas copiarán estos valores y quedarán versionadas. Cambiar estos parámetros no modificará torneos históricos.</span>
-                </div>
-            </div>
-
-            <form id="operational-settings-form" class="mt-7 space-y-6" @submit.prevent="form.put('/liga/parametros', { preserveScroll: true })">
-                <section class="premium-card">
-                    <div class="premium-card__sidebar">
-                        <div class="step-badge">1</div>
-                        <div class="sidebar-icon"><AppIcon name="clock" variant="illustrated" :size="42" /></div>
-                    </div>
-                    <div class="premium-card__content">
-                        <div class="section-header">
-                            <div>
-                                <h2 class="section-title">Duración de los partidos</h2>
-                                <p class="section-description">Define la estructura base del encuentro y la duración total estimada para la agenda deportiva.</p>
-                            </div>
-                            <div class="section-pill">
-                                <strong>{{ estimatedDuration ?? '—' }}</strong>
-                                <span>minutos estimados</span>
-                            </div>
+            <form class="mt-4" @submit.prevent="save">
+                <div class="op-main-shell">
+                    <aside class="op-sidebar" aria-label="Categorías de parámetros">
+                        <p class="mb-4 px-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Secciones</p>
+                        <nav class="flex gap-2 overflow-x-auto lg:flex-col" aria-label="Navegación de secciones">
+                            <button v-for="item in sectionLinks" :key="item.id" type="button" class="op-nav-item" :class="{ 'op-nav-item--active': activeSection === item.id }" @click="navigateTo(item.id)">
+                                <AppIcon :name="item.icon" :size="19" />
+                                <span>{{ item.label }}</span>
+                            </button>
+                        </nav>
+                        <div class="op-sidebar-note hidden lg:block">
+                            <AppIcon name="shield" :size="19" />
+                            <p>Los cambios se aplican a nuevas competencias; el historial permanece protegido.</p>
                         </div>
+                    </aside>
 
-                        <div class="mt-6 grid gap-5 xl:grid-cols-3">
-                            <div class="field-card">
-                                <label class="form-label">Número de tiempos</label>
-                                <input v-model.number="form.match_periods" class="form-input" type="number" min="1" max="4" required>
-                                <FormError :message="form.errors.match_periods" />
+                    <div class="op-content">
+                        <section id="op-duracion" class="op-section" @mouseenter="activeSection = 'duracion'">
+                            <div class="op-section-head">
+                                <span class="op-section-icon"><AppIcon name="clock" :size="21" /></span>
+                                <div class="flex-1">
+                                    <h2>Duración del partido</h2>
+                                    <p>Define la estructura del encuentro y su duración estimada para la agenda deportiva.</p>
+                                </div>
+                                <div class="op-total" aria-live="polite">{{ estimatedDuration }} minutos estimados</div>
                             </div>
-                            <div class="field-card">
-                                <label class="form-label">Minutos por tiempo</label>
-                                <input v-model.number="form.period_duration_minutes" class="form-input" type="number" min="5" max="120" required>
-                                <FormError :message="form.errors.period_duration_minutes" />
+                            <div class="mt-5 grid gap-4 sm:grid-cols-3">
+                                <div>
+                                    <label for="match_periods" class="form-label">Número de tiempos</label>
+                                    <select id="match_periods" v-model.number="form.match_periods" class="form-input" required>
+                                        <option v-for="n in 4" :key="n" :value="n">{{ n }}</option>
+                                    </select>
+                                    <FormError :message="form.errors.match_periods" />
+                                </div>
+                                <div>
+                                    <label for="period_duration_minutes" class="form-label">Minutos por tiempo</label>
+                                    <input id="period_duration_minutes" v-model.number="form.period_duration_minutes" class="form-input" type="number" min="5" max="120" required />
+                                    <FormError :message="form.errors.period_duration_minutes" />
+                                </div>
+                                <div>
+                                    <label for="halftime_minutes" class="form-label">Descanso (min)</label>
+                                    <input id="halftime_minutes" v-model.number="form.halftime_minutes" class="form-input" type="number" min="0" max="60" placeholder="0" />
+                                    <FormError :message="form.errors.halftime_minutes" />
+                                </div>
                             </div>
-                            <div class="field-card">
-                                <label class="form-label">Descanso en minutos</label>
-                                <input v-model.number="form.halftime_minutes" class="form-input" type="number" min="0" max="60" placeholder="Opcional">
-                                <FormError :message="form.errors.halftime_minutes" />
+                            <div class="op-timeline mt-4" role="img" :aria-label="`${periods} tiempos de ${periodMinutes} minutos y ${breakMinutes} minutos de descanso entre tiempos. Total ${estimatedDuration} minutos`">
+                                <div v-for="segment in timeline" :key="segment.key" class="op-timeline-part" :class="segment.rest ? 'op-timeline-part--rest' : ''" :style="{ flexGrow: Math.max(segment.minutes, 1) }">
+                                    <span>{{ segment.label }}</span>
+                                </div>
                             </div>
-                        </div>
+                            <p class="op-helper mt-3"><AppIcon name="badge" :size="16" /> {{ periods }} {{ periods === 1 ? 'tiempo' : 'tiempos' }} de {{ periodMinutes }} min<span v-if="periods > 1"> + {{ periods - 1 }} {{ periods === 2 ? 'descanso' : 'descansos' }} de {{ breakMinutes }} min</span>.</p>
+                        </section>
 
-                        <div class="summary-band mt-5">
-                            <div class="summary-band__icon"><AppIcon name="clock" :size="18" /></div>
-                            <div>
-                                <p class="text-sm font-semibold text-slate-900">Resumen de la configuración</p>
-                                <p class="mt-1 text-sm text-slate-600">{{ durationSummary }}</p>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <section class="premium-card">
-                    <div class="premium-card__sidebar">
-                        <div class="step-badge">2</div>
-                        <div class="sidebar-icon"><AppIcon name="calendar" variant="illustrated" :size="42" /></div>
-                    </div>
-                    <div class="premium-card__content">
-                        <div class="section-header">
-                            <div>
-                                <h2 class="section-title">Programación y apelaciones</h2>
-                                <p class="section-description">Ajusta el margen operativo entre encuentros y el tiempo disponible para presentar apelaciones.</p>
-                            </div>
-                        </div>
-
-                        <div class="mt-6 grid gap-6 xl:grid-cols-[1.1fr_.9fr]">
-                            <div class="feature-panel">
-                                <label class="toggle-row">
-                                    <input v-model="bufferEnabled" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-league-600 focus:ring-league-400">
+                        <div class="grid gap-4 xl:grid-cols-2">
+                            <section id="op-programacion" class="op-section" @mouseenter="activeSection = 'programacion'">
+                                <div class="op-section-head">
+                                    <span class="op-section-icon"><AppIcon name="calendar" :size="21" /></span>
                                     <div>
-                                        <span class="toggle-title">Usar margen entre partidos</span>
-                                        <span class="toggle-description">Añade tiempo de separación para logística, descanso y transición entre encuentros.</span>
+                                        <h2>Programación y apelaciones</h2>
+                                        <p>Ajusta los tiempos operativos entre partidos y el plazo para presentar apelaciones.</p>
                                     </div>
-                                </label>
-
-                                <div v-if="bufferEnabled" class="mt-5 field-card">
-                                    <label class="form-label">Margen en minutos</label>
-                                    <input v-model.number="form.schedule_buffer_minutes" class="form-input" type="number" min="0" max="240">
-                                    <FormError :message="form.errors.schedule_buffer_minutes" />
                                 </div>
-                                <div v-else class="empty-note mt-5">Sin margen adicional; únicamente se considerará la duración del partido.</div>
-                            </div>
-
-                            <div class="feature-panel">
-                                <div class="field-card">
-                                    <label class="form-label">Plazo de apelación en horas</label>
-                                    <input v-model.number="form.appeal_deadline_hours" class="form-input" type="number" min="1" max="168" required>
-                                    <FormError :message="form.errors.appeal_deadline_hours" />
-                                    <p class="mt-2 text-xs text-slate-500">Valor inicial aprobado: 2 horas.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <section class="premium-card">
-                    <div class="premium-card__sidebar">
-                        <div class="step-badge">3</div>
-                        <div class="sidebar-icon"><AppIcon name="wallet" variant="illustrated" :size="42" /></div>
-                    </div>
-                    <div class="premium-card__content">
-                        <div class="section-header">
-                            <div>
-                                <h2 class="section-title">Pagos, reactivación y fianza</h2>
-                                <p class="section-description">Establece criterios administrativos para prórrogas de pago, suspensión de acceso y garantías económicas.</p>
-                            </div>
-                        </div>
-
-                        <div class="mt-6 grid gap-6 xl:grid-cols-[1.1fr_.9fr]">
-                            <div class="feature-panel">
-                                <label class="toggle-row">
-                                    <input v-model="paymentGraceEnabled" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-league-600 focus:ring-league-400">
-                                    <div>
-                                        <span class="toggle-title">Aplicar prórroga de pago</span>
-                                        <span class="toggle-description">Habilita días adicionales antes de considerar incumplimiento administrativo.</span>
-                                    </div>
-                                </label>
-
-                                <div v-if="paymentGraceEnabled" class="mt-5 field-card">
-                                    <label class="form-label">Días de prórroga</label>
-                                    <input v-model.number="form.payment_grace_days" class="form-input" type="number" min="0" max="365">
-                                    <FormError :message="form.errors.payment_grace_days" />
-                                </div>
-
-                                <div class="mt-5 border-t border-slate-200 pt-5">
-                                    <label class="toggle-row">
-                                        <input v-model="form.bond_enabled" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-league-600 focus:ring-league-400">
-                                        <div>
-                                            <span class="toggle-title">La liga requiere fianza</span>
-                                            <span class="toggle-description">Activa una garantía económica para respaldar registros, sanciones o compromisos administrativos.</span>
-                                        </div>
+                                <div class="op-field-row mt-5">
+                                    <label class="op-check-row" for="buffer-toggle">
+                                        <input id="buffer-toggle" v-model="bufferEnabled" type="checkbox" class="op-check" />
+                                        <span><strong>Usar margen entre partidos</strong><small>Añade tiempo de separación para logística y descanso.</small></span>
                                     </label>
-                                </div>
-
-                                <div v-if="form.bond_enabled" class="mt-5 grid gap-5 md:grid-cols-2">
-                                    <div class="field-card">
-                                        <label class="form-label">Monto de la fianza</label>
-                                        <input v-model="form.bond_amount" class="form-input" type="number" min="0" max="9999999.99" step="0.01" required>
-                                        <FormError :message="form.errors.bond_amount" />
+                                    <div class="min-w-[125px]">
+                                        <label for="buffer-minutes" class="form-label">Margen (min)</label>
+                                        <input id="buffer-minutes" v-model.number="form.schedule_buffer_minutes" class="form-input" type="number" min="0" max="240" :disabled="!bufferEnabled" placeholder="Sin margen" />
+                                        <FormError :message="form.errors.schedule_buffer_minutes" />
                                     </div>
-                                    <div class="field-card">
-                                        <label class="form-label">Moneda</label>
-                                        <select v-model="form.currency" class="form-input">
-                                            <option value="MXN">MXN — Peso mexicano</option>
-                                        </select>
+                                </div>
+                                <div class="op-field-row op-field-row--bottom">
+                                    <div class="flex-1">
+                                        <label for="appeal" class="form-label">Plazo de apelación (horas)</label>
+                                        <input id="appeal" v-model.number="form.appeal_deadline_hours" class="form-input" type="number" min="1" max="168" required />
+                                        <FormError :message="form.errors.appeal_deadline_hours" />
+                                    </div>
+                                    <p class="op-muted-help"><AppIcon name="clock" :size="17" /> Tiempo máximo para presentar apelaciones.</p>
+                                </div>
+                            </section>
+
+                            <section id="op-finanzas" class="op-section" @mouseenter="activeSection = 'finanzas'">
+                                <div class="op-section-head">
+                                    <span class="op-section-icon"><AppIcon name="wallet" :size="21" /></span>
+                                    <div>
+                                        <h2>Pagos, reactivación y fianza</h2>
+                                        <p>Configura las prórrogas de pago, la reactivación y las garantías económicas.</p>
+                                    </div>
+                                </div>
+                                <div class="op-field-row mt-5">
+                                    <label class="op-check-row" for="grace-toggle">
+                                        <input id="grace-toggle" v-model="paymentGraceEnabled" type="checkbox" class="op-check" />
+                                        <span><strong>Aplicar prórroga de pago</strong><small>Otorga días adicionales antes del vencimiento administrativo.</small></span>
+                                    </label>
+                                    <div class="min-w-[125px]">
+                                        <label for="grace" class="form-label">Prórroga (días)</label>
+                                        <input id="grace" v-model.number="form.payment_grace_days" class="form-input" type="number" min="0" max="365" :disabled="!paymentGraceEnabled" placeholder="No aplica" />
+                                        <FormError :message="form.errors.payment_grace_days" />
+                                    </div>
+                                </div>
+                                <div class="op-field-row">
+                                    <label class="op-check-row" for="bond-toggle">
+                                        <input id="bond-toggle" v-model="form.bond_enabled" type="checkbox" class="op-check" />
+                                        <span><strong>La liga requiere fianza</strong><small>Solicita una garantía para respaldar compromisos administrativos.</small></span>
+                                    </label>
+                                    <div class="min-w-[125px]">
+                                        <label for="bond-amount" class="form-label">Monto ({{ form.currency }})</label>
+                                        <input id="bond-amount" v-model="form.bond_amount" class="form-input" type="number" min="0" max="9999999.99" step="0.01" :disabled="!form.bond_enabled" :required="form.bond_enabled" placeholder="0.00" />
+                                        <FormError :message="form.errors.bond_amount" />
                                         <FormError :message="form.errors.currency" />
                                     </div>
                                 </div>
-                            </div>
+                                <div class="op-field-row op-field-row--bottom">
+                                    <div class="flex-1">
+                                        <label for="reactivation" class="form-label">Días para reincorporarse después de la suspensión</label>
+                                        <input id="reactivation" v-model.number="form.reactivation_window_days" class="form-input" type="number" min="1" max="365" required />
+                                        <FormError :message="form.errors.reactivation_window_days" />
+                                    </div>
+                                    <p class="op-muted-help">Plazo administrativo de reincorporación.</p>
+                                </div>
+                            </section>
+                        </div>
 
-                            <div class="feature-panel">
-                                <div class="field-card">
-                                    <label class="form-label">Días para reincorporarse después de la suspensión</label>
-                                    <input v-model.number="form.reactivation_window_days" class="form-input" type="number" min="1" max="365" required>
-                                    <FormError :message="form.errors.reactivation_window_days" />
-                                    <p class="mt-2 text-xs text-slate-500">Valor inicial: 21 días, equivalentes a 3 semanas.</p>
+                        <section id="op-registro" class="op-section" @mouseenter="activeSection = 'registro'">
+                            <div class="op-section-head">
+                                <span class="op-section-icon"><AppIcon name="file" :size="21" /></span>
+                                <div>
+                                    <h2>Motivo de la configuración o modificación</h2>
+                                    <p>Este texto quedará registrado como respaldo administrativo de la actualización.</p>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                </section>
-
-                <section class="premium-card premium-card--compact">
-                    <div class="premium-card__sidebar">
-                        <div class="step-badge">4</div>
-                        <div class="sidebar-icon"><AppIcon name="file" variant="illustrated" :size="42" /></div>
-                    </div>
-                    <div class="premium-card__content">
-                        <div class="section-header">
-                            <div>
-                                <h2 class="section-title">Motivo de la configuración o modificación</h2>
-                                <p class="section-description">Este texto se utilizará como respaldo administrativo de la actualización.</p>
+                            <label for="reason" class="sr-only">Motivo de la configuración o modificación</label>
+                            <textarea id="reason" v-model="form.reason" class="form-input mt-4 min-h-24" maxlength="500" required placeholder="Describe brevemente el motivo de esta actualización..."></textarea>
+                            <div class="mt-1 flex items-start justify-between gap-3">
+                                <FormError :message="form.errors.reason" />
+                                <span class="ml-auto text-xs text-slate-500">{{ form.reason.length }} / 500</span>
                             </div>
-                        </div>
+                        </section>
+                    </div>
+                </div>
 
-                        <div class="mt-5 field-card">
-                            <textarea v-model="form.reason" class="form-input min-h-28" maxlength="500" required placeholder="Ejemplo: Parámetros aprobados para la temporada 2027"></textarea>
-                            <div class="mt-2 flex items-center justify-between gap-3 text-xs text-slate-400">
-                                <span>Describe el motivo de forma breve y clara.</span>
-                                <span>{{ form.reason.length }}/500</span>
-                            </div>
-                            <FormError :message="form.errors.reason" />
-                        </div>
-
-                        <div class="mt-6 flex justify-end">
-                            <button class="btn-primary inline-flex min-h-12 items-center justify-center gap-2 px-5 py-3" type="submit" :disabled="form.processing">
-                                <AppIcon name="check" :size="16" />
-                                {{ form.processing ? 'Guardando…' : 'Guardar parámetros' }}
-                            </button>
+                <div class="op-save-bar" aria-live="polite">
+                    <div class="flex min-w-0 flex-1 items-center gap-3">
+                        <AppIcon :name="form.isDirty ? 'badge' : 'check'" :size="21" />
+                        <div>
+                            <p class="font-semibold">{{ form.isDirty ? 'Tienes cambios sin guardar' : 'Configuración sin cambios pendientes' }}</p>
+                            <p class="hidden text-xs text-slate-600 md:block">Los nuevos parámetros se aplicarán al guardar la personalización de esta liga.</p>
                         </div>
                     </div>
-                </section>
+                    <div class="flex shrink-0 gap-2">
+                        <button type="button" class="op-discard" :disabled="!form.isDirty || form.processing" @click="discard">Descartar</button>
+                        <button type="submit" class="op-submit" :disabled="!form.isDirty || form.processing">
+                            <AppIcon name="check" :size="18" />
+                            {{ form.processing ? 'Guardando…' : 'Guardar parámetros' }}
+                        </button>
+                    </div>
+                </div>
             </form>
-        </section>
+        </div>
     </AppLayout>
 </template>
 
 <style scoped>
-@reference "../../../../css/app.css";
-
-.header-icon-shell {
-    @apply grid h-16 w-16 shrink-0 place-items-center rounded-2xl border border-white/80 bg-white/90 shadow-sm shadow-slate-900/5;
-}
-
-.notice-card {
-    @apply flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm shadow-sm;
-}
-
-.notice-card--warning {
-    @apply border-amber-200 bg-amber-50 text-amber-900;
-}
-
-.notice-card--info {
-    @apply border-sky-200 bg-sky-50 text-sky-900;
-}
-
-.premium-card {
-    display: grid;
-    gap: 0;
-    border-radius: 1.75rem;
-    border: 1px solid rgba(255, 255, 255, 0.85);
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96));
-    box-shadow: 0 18px 36px rgba(15, 23, 42, 0.08);
-    overflow: hidden;
-}
-
-.premium-card--compact {
-    align-items: start;
-}
-
-.premium-card__sidebar {
-    display: flex;
-    align-items: flex-start;
-    gap: 1rem;
-    padding: 1.25rem 1.25rem 0;
-}
-
-.premium-card__content {
-    padding: 0 1.25rem 1.25rem;
-}
-
-.step-badge {
-    @apply grid h-9 w-9 shrink-0 place-items-center rounded-full bg-league-50 text-sm font-extrabold text-league-700;
-}
-
-.sidebar-icon {
-    @apply grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-slate-200 bg-white shadow-sm;
-}
-
-.section-header {
-    @apply flex flex-col gap-4 border-b border-slate-200 pb-5 md:flex-row md:items-start md:justify-between;
-}
-
-.section-title {
-    @apply text-2xl font-bold tracking-tight text-slate-900;
-}
-
-.section-description {
-    @apply mt-2 max-w-3xl text-sm leading-6 text-slate-600;
-}
-
-.section-pill {
-    @apply inline-flex w-fit flex-col rounded-2xl border border-league-100 bg-league-50/60 px-4 py-3 text-right;
-}
-
-.section-pill strong {
-    @apply text-xl font-bold text-league-900;
-}
-
-.section-pill span {
-    @apply text-xs font-semibold uppercase tracking-[0.14em] text-league-700/75;
-}
-
-.field-card {
-    @apply rounded-2xl border border-slate-200 bg-white p-4 shadow-sm;
-}
-
-.feature-panel {
-    @apply rounded-[1.35rem] border border-slate-200 bg-slate-50/70 p-4 sm:p-5;
-}
-
-.toggle-row {
-    @apply flex items-start gap-3 text-sm;
-}
-
-.toggle-title {
-    @apply block font-semibold text-slate-900;
-}
-
-.toggle-description {
-    @apply mt-1 block text-sm leading-6 text-slate-500;
-}
-
-.empty-note {
-    @apply rounded-2xl border border-dashed border-slate-300 bg-white/70 px-4 py-4 text-sm text-slate-500;
-}
-
-.summary-band {
-    @apply flex items-start gap-3 rounded-2xl border border-league-100 bg-league-50/60 px-4 py-4;
-}
-
-.summary-band__icon {
-    @apply mt-0.5 shrink-0 text-league-700;
-}
-
-@media (min-width: 900px) {
-    .premium-card {
-        grid-template-columns: 6.25rem minmax(0, 1fr);
-    }
-
-    .premium-card__sidebar {
-        flex-direction: column;
-        align-items: center;
-        gap: 1rem;
-        padding: 1.4rem 0 1.4rem 1.4rem;
-    }
-
-    .premium-card__content {
-        padding: 1.4rem 1.4rem 1.4rem 0;
-    }
-}
+.operational-page { --op-primary: var(--color-league-600, #2e7d32); --op-deep: var(--color-league-900, #1b2a4a); --op-light: var(--color-league-50, #eff8f0); }
+.operational-hero { overflow: hidden; position: relative; border: 1px solid rgba(255,255,255,.36); border-radius: 25px; background: linear-gradient(101deg, color-mix(in srgb,var(--op-deep) 92%, #092951) 0%, color-mix(in srgb,var(--op-primary) 57%, #163359) 68%, color-mix(in srgb,var(--op-primary) 47%, #0c2648) 100%),url('/images/public/league-stadium.jpg') center 52%/cover; box-shadow: 0 17px 32px rgba(13,31,62,.14); }
+.operational-hero::after { content:''; position:absolute; inset:0; pointer-events:none; background: linear-gradient(120deg,transparent 42%,rgba(255,255,255,.07) 61%,transparent 61%); }
+.operational-hero-content { position:relative; z-index:1; display:flex; align-items:center; gap:20px; padding:25px 28px; }
+.op-hero-icon { color:white; width:62px; height:62px; border-radius:16px; border:1px solid rgba(255,255,255,.27); background:rgba(255,255,255,.14); box-shadow:inset 0 1px 1px rgba(255,255,255,.15); display:grid; place-items:center; flex-shrink:0; }
+.op-eyebrow { text-transform:uppercase; font-size:11px; letter-spacing:.17em; font-weight:800; color:#ffffffd9; }
+.op-hero-context { padding:12px 14px; background:rgba(0,0,0,.14); border:1px solid rgba(255,255,255,.31); border-radius:14px; color:white; font-weight:650; font-size:12px; }
+.op-hero-status { display:flex; align-items:center; gap:7px; border-radius:999px; padding:4px 10px; background:rgba(255,255,255,.2); }
+.op-dot { background:#b9f6c6; height:7px; width:7px; border-radius:50%; }
+.op-notice { display:flex; align-items:flex-start; gap:11px; border:1px solid #a6cef9; border-radius:13px; padding:12px 17px; background:#edf6ff; color:#164679; font-size:13px; }
+.op-notice svg { flex-shrink:0; }
+.op-main-shell { display:grid; grid-template-columns:240px minmax(0,1fr); border:1px solid #d9e2ee; border-radius:23px; background:#ffffffee; box-shadow:0 12px 30px rgba(20,43,78,.08); overflow:hidden; }
+.op-sidebar { border-right:1px solid #dce5ef; background:linear-gradient(180deg,#fcfdff,#f6f9fd); padding:22px 13px; }
+.op-sidebar nav { position:sticky; top:18px; }
+.op-nav-item { display:flex; align-items:center; gap:12px; text-align:left; width:100%; flex-shrink:0; padding:12px; border-radius:12px; color:#304663; font-weight:650; font-size:13px; transition:.18s ease; }
+.op-nav-item:hover { background:#eaf1fa; }
+.op-nav-item--active { background:color-mix(in srgb,var(--op-primary) 10%,white); color:var(--op-primary); box-shadow:inset 3px 0 var(--op-primary); }
+.op-sidebar-note { margin:40px 10px 0; border-top:1px solid #d9e2ee; padding-top:16px; color:#64748b; font-size:12px; line-height:1.5; }
+.op-sidebar-note svg { color:var(--op-primary); margin-bottom:6px; }
+.op-content { padding:14px; display:flex; flex-direction:column; gap:14px; min-width:0; }
+.op-section { min-width:0; border:1px solid #dbe4f0; border-radius:18px; background:#fff; padding:19px; scroll-margin-top:110px; }
+.op-section-head { display:flex; align-items:center; gap:13px; padding-bottom:13px; border-bottom:1px solid #e5eaf1; }
+.op-section-head h2 { font-size:16px; font-weight:800; color:#14243e; line-height:1.25; }
+.op-section-head p { font-size:12px; color:#62748d; margin-top:3px; line-height:1.5; }
+.op-section-icon { height:39px; width:39px; border-radius:11px; background:color-mix(in srgb,var(--op-primary) 13%,white); color:var(--op-primary); display:grid; place-items:center; flex-shrink:0; }
+.op-total { margin-left:auto; flex-shrink:0; border-radius:11px; padding:8px 12px; background:color-mix(in srgb,var(--op-primary) 10%,white); border:1px solid color-mix(in srgb,var(--op-primary) 27%,white); color:var(--op-primary); font-weight:800; font-size:14px; }
+.op-timeline { display:flex; gap:3px; width:100%; min-height:34px; overflow:hidden; border-radius:9px; }
+.op-timeline-part { flex-basis:0; min-width:0; background:color-mix(in srgb,var(--op-primary) 14%,#e8f2ff); color:var(--op-deep); display:flex; align-items:center; justify-content:center; text-align:center; padding:5px 4px; font-size:11px; font-weight:700; }
+.op-timeline-part--rest { background:#fff0d8; color:#9b5709; }
+.op-helper { display:flex; align-items:center; gap:8px; font-size:12px; color:#64748b; }
+.op-field-row { display:flex; align-items:center; gap:15px; padding:11px 0; border-bottom:1px solid #e6ecf3; }
+.op-field-row--bottom { border-bottom:0; padding-bottom:0; }
+.op-check-row { display:flex; flex:1; align-items:flex-start; gap:12px; cursor:pointer; min-width:0; }
+.op-check-row strong { display:block; color:#192c48; font-size:13px; line-height:1.4; }
+.op-check-row small { display:block; color:#667791; font-size:11px; line-height:1.5; margin-top:3px; }
+.op-check { accent-color:var(--op-primary); flex-shrink:0; margin-top:3px; width:18px; height:18px; cursor:pointer; }
+.op-muted-help { width:38%; display:flex; align-items:center; gap:7px; color:#63758d; font-size:11px; }
+.operational-page :deep(.form-label) { font-size:12px; font-weight:700; color:#304462; margin-bottom:6px; }
+.operational-page :deep(.form-input) { width:100%; background:white; font-size:13px; border-radius:10px; border-color:#cad6e6; }
+.operational-page :deep(.form-input:disabled) { background:#f3f6fa; color:#94a3b8; cursor:not-allowed; }
+.op-save-bar { position:sticky; bottom:12px; z-index:20; display:flex; align-items:center; justify-content:space-between; gap:15px; margin-top:-1px; padding:13px 18px; border:1px solid color-mix(in srgb,var(--op-primary) 21%,#dce5f0); background:rgba(255,255,255,.98); border-radius:0 0 18px 18px; box-shadow:0 10px 25px rgba(15,32,58,.15); color:#193450; font-size:13px; backdrop-filter:blur(10px); }
+.op-save-bar > div > svg { color:var(--op-primary); flex-shrink:0; }
+.op-discard,.op-submit { display:inline-flex; gap:8px; justify-content:center; align-items:center; min-height:40px; border-radius:10px; padding:9px 17px; font-size:13px; font-weight:700; transition:.18s ease; }
+.op-discard { color:#253a56; background:#fff; border:1px solid #c7d3e4; }
+.op-discard:hover:not(:disabled) { background:#f1f5fa; }
+.op-submit { color:white; background:var(--op-primary); border:1px solid color-mix(in srgb,var(--op-primary) 80%,#000); box-shadow:0 3px 8px color-mix(in srgb,var(--op-primary) 20%,transparent); }
+.op-submit:hover:not(:disabled) { filter:brightness(1.08); }
+.op-discard:disabled,.op-submit:disabled { opacity:.52; cursor:not-allowed; }
+@media(max-width:1023px) { .op-main-shell { grid-template-columns:1fr; } .op-sidebar { border-right:0; border-bottom:1px solid #e0e7f0; padding:15px; } .op-sidebar nav { position:static; } .op-nav-item { width:auto; } }
+@media(max-width:720px) { .operational-hero-content { padding:20px; gap:12px; } .op-hero-icon { width:46px; height:46px; } .op-content { padding:10px; } .op-section { padding:14px; } .op-section-head { flex-wrap:wrap; } .op-total { margin-left:0; } .op-field-row { flex-wrap:wrap; } .op-muted-help { width:100%; } .op-save-bar { flex-wrap:wrap; bottom:0; border-radius:12px; } .op-save-bar>div:last-child { width:100%; } .op-save-bar button { flex:1; } }
 </style>

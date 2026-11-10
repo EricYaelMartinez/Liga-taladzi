@@ -32,7 +32,7 @@ class MembershipController extends Controller
 
         return Inertia::render('League/Members/Index', [
             'memberships' => LeagueMembership::where('league_id', $league->id)
-                ->with(['user:id,name,email,status', 'role:id,name,slug'])
+                ->with(['user:id,name,email,status,last_login_at', 'role:id,name,slug'])
                 ->latest()
                 ->get(),
             'roles' => Role::where('scope', 'league')->orderBy('name')->get(['id', 'name', 'slug']),

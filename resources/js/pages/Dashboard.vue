@@ -3,8 +3,7 @@ import AppLayout from '../layouts/AppLayout.vue';
 import AppIcon from '../components/AppIcon.vue';
 import type { AppPageProps } from '../types';
 import { Head, Link, usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
-import type { CSSProperties } from 'vue';
+import { computed, ref } from 'vue';
 
 type DashboardSummary = { pendingTasks: number; upcomingMatches: number; notifications: number; activeTeams: number };
 type UpcomingMatch = { id: number; competition: string | null; matchday: string; homeTeam: string; awayTeam: string; homeCrestUrl: string | null; awayCrestUrl: string | null; scheduledAt: string | null; field: string };
@@ -25,15 +24,6 @@ const quickActions = computed(() => [
     { label: 'Consultar estadísticas', description: 'Resultados y posiciones', href: '/liga/resultados', icon: 'chart', show: can('statistics.view') },
 ].filter((action) => action.show).slice(0, 4));
 
-// Los colores se heredan de la liga activa mediante AppLayout.
-const quickActionStyle = (index: number): CSSProperties => ({
-    '--quick-primary': 'var(--color-league-600)',
-    '--quick-secondary': 'var(--color-gold-500)',
-    '--quick-background': index % 2 === 0
-        ? 'color-mix(in srgb, var(--color-league-600) 8%, white)'
-        : 'color-mix(in srgb, var(--color-gold-500) 9%, white)',
-} as CSSProperties);
-
 const actionLabels: Record<string, string> = {
     'team.created': 'Se registró un equipo',
     'team.updated': 'Se actualizaron los datos de un equipo',
@@ -49,6 +39,11 @@ const actionLabels: Record<string, string> = {
     'schedule.match.rescheduled': 'Se reprogramó un partido',
     'schedule.matchday.published': 'Se publicó una jornada',
     'lineup.submitted': 'Se envió una alineación',
+    'lineup.saved': 'Se guardó una alineación',
+    'league.updated': 'Se actualizó la configuración de la liga',
+    'league.identity.updated': 'Se actualizó la identidad de la liga',
+    'player.credentials.downloaded': 'Se descargaron credenciales',
+    'player.credentials.previewed': 'Se consultaron credenciales',
     'match_report.submitted': 'Se envió una cédula arbitral',
     'match_report.approved': 'Se aprobó una cédula arbitral',
     'finance.payment.received': 'Se registró un pago',
@@ -60,226 +55,177 @@ const activityLabel = (action: string) => actionLabels[action]
 const formatDate = (value: string | null, options: Intl.DateTimeFormatOptions) => value
     ? new Intl.DateTimeFormat('es-MX', { timeZone: 'America/Mexico_City', ...options }).format(new Date(value))
     : 'Por definir';
+const activityIcon = (action: string) => {
+    if (action.includes('lineup') || action.includes('player')) return 'users';
+    if (action.includes('credential')) return 'id';
+    if (action.includes('match') || action.includes('schedule')) return 'calendar';
+    if (action.includes('payment') || action.includes('finance')) return 'wallet';
+    if (action.includes('notification')) return 'bell';
+    return 'settings';
+};
+const teamInitials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(word => word[0]?.toUpperCase() ?? '').join('');
+const brokenImages = ref<Record<string, boolean>>({});
+const logoVisible = (key: string, url: string | null) => Boolean(url && !brokenImages.value[key]);
+const markLogoBroken = (key: string) => { brokenImages.value[key] = true; };
 const progress = (value: number, maximum: number) => `${Math.min(100, Math.round((value / Math.max(maximum, 1)) * 100))}%`;
 </script>
 
 <template>
     <Head title="Panel" />
     <AppLayout>
-        <section class="dashboard-hero overflow-hidden rounded-[1.75rem] text-white shadow-2xl shadow-slate-950/20">
-            <div class="relative z-10 px-6 py-7 sm:px-8 lg:px-10 lg:py-9">
-                <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-                    <div>
-                        <p class="text-xs font-bold uppercase tracking-[0.24em] text-gold-400">Panel de administración</p>
-                        <h1 class="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Hola, {{ page.props.auth.user?.name }}</h1>
-                        <p class="mt-2 max-w-2xl text-sm text-white/75 sm:text-base">
-                            {{ context ? `Consulta el estado de ${context.league.name} y continúa con las tareas prioritarias.` : 'Selecciona una liga y un rol para comenzar a trabajar.' }}
-                        </p>
+        <main class="dashboard-premium">
+            <section class="dashboard-hero" aria-label="Contexto de administración">
+                <div class="dashboard-hero__inner">
+                    <div class="min-w-0">
+                        <p class="dashboard-kicker">Panel de administración</p>
+                        <h1>Hola, {{ page.props.auth.user?.name }}</h1>
+                        <p class="dashboard-hero__description">{{ context ? `Consulta el estado de ${context.league.name} y continúa con las tareas prioritarias.` : 'Selecciona una liga y un rol para comenzar a trabajar.' }}</p>
+                        <div v-if="context" class="dashboard-context">
+                            <span class="dashboard-context__logo">
+                                <img v-if="logoVisible('league', context.league.logoUrl)" :src="context.league.logoUrl!" :alt="`Escudo de ${context.league.name}`" @error="markLogoBroken('league')">
+                                <span v-else>{{ teamInitials(context.league.name) }}</span>
+                            </span>
+                            <span class="dashboard-context__name">{{ context.league.name }}</span>
+                            <span class="dashboard-context__separator" aria-hidden="true"></span>
+                            <span class="dashboard-context__role">{{ context.role.name }}</span>
+                            <span class="dashboard-context__status"><span class="dashboard-context__dot"></span> Contexto activo</span>
+                        </div>
                     </div>
-                    <Link href="/seleccionar-acceso" class="inline-flex min-h-11 items-center justify-center gap-2 self-start rounded-xl border border-white/25 bg-white/12 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20 lg:self-auto">
-                        <AppIcon name="switch" :size="18" /> Cambiar liga o rol
+                    <Link href="/seleccionar-acceso" class="dashboard-context-switch"><AppIcon name="switch" :size="20" /> Cambiar liga o rol</Link>
+                </div>
+            </section>
+
+            <section class="dashboard-kpis" aria-label="Indicadores principales">
+                <article class="dashboard-kpi">
+                    <div class="dashboard-kpi__top"><span class="dashboard-kpi__icon"><AppIcon name="clipboard" :size="25" /></span><span class="dashboard-kpi__tag">Por atender</span></div>
+                    <strong>{{ summary.pendingTasks }}</strong><p>Tareas pendientes</p>
+                </article>
+                <article class="dashboard-kpi">
+                    <div class="dashboard-kpi__top"><span class="dashboard-kpi__icon"><AppIcon name="calendar" :size="25" /></span><span class="dashboard-kpi__tag">Próximos</span></div>
+                    <strong>{{ summary.upcomingMatches }}</strong><p>Partidos programados</p>
+                </article>
+                <Link v-if="context && can('notifications.view')" href="/liga/avisos" class="dashboard-kpi dashboard-kpi--link">
+                    <div class="dashboard-kpi__top"><span class="dashboard-kpi__icon"><AppIcon name="bell" :size="25" /></span><span class="dashboard-kpi__tag">Sin leer</span></div>
+                    <strong>{{ summary.notifications }}</strong><p>Notificaciones</p>
+                </Link>
+                <article v-else class="dashboard-kpi">
+                    <div class="dashboard-kpi__top"><span class="dashboard-kpi__icon"><AppIcon name="bell" :size="25" /></span><span class="dashboard-kpi__tag">Sin leer</span></div>
+                    <strong>{{ summary.notifications }}</strong><p>Notificaciones</p>
+                </article>
+                <article class="dashboard-kpi">
+                    <div class="dashboard-kpi__top"><span class="dashboard-kpi__icon"><AppIcon name="team" :size="25" /></span><span class="dashboard-kpi__tag dashboard-kpi__tag--success">Liga activa</span></div>
+                    <strong>{{ summary.activeTeams }}</strong><p>Equipos activos</p>
+                </article>
+            </section>
+
+            <section v-if="context && quickActions.length" class="dashboard-shortcuts" aria-labelledby="shortcut-title">
+                <h2 id="shortcut-title">Accesos rápidos</h2>
+                <div class="dashboard-shortcuts__grid">
+                    <Link v-for="action in quickActions" :key="action.label" :href="action.href" class="dashboard-shortcut">
+                        <span class="dashboard-shortcut__icon"><AppIcon :name="action.icon" :size="25" /></span>
+                        <span class="dashboard-shortcut__text"><strong>{{ action.label }}</strong><small>{{ action.description }}</small></span>
+                        <span class="dashboard-shortcut__arrow" aria-hidden="true">›</span>
                     </Link>
                 </div>
-            </div>
-        </section>
+            </section>
 
-        <section v-if="context" class="relative z-10 mx-3 -mt-4 rounded-2xl border border-white/80 bg-white/95 px-5 py-4 shadow-lg shadow-slate-900/10 backdrop-blur sm:mx-6 sm:px-6">
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div class="flex min-w-0 items-center gap-3">
-                    <div class="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-league-50 text-lg font-black text-league-700">
-                        <img v-if="context.league.logoUrl" :src="context.league.logoUrl" :alt="`Logo de ${context.league.name}`" class="h-full w-full object-contain p-1">
-                        <span v-else>{{ context.league.name.charAt(0) }}</span>
+            <section class="dashboard-detail-grid" aria-label="Calendario y actividad reciente">
+                <article class="dashboard-surface">
+                    <div class="dashboard-surface__heading">
+                        <div><p class="dashboard-surface__eyebrow"><AppIcon name="calendar" :size="16" /> Calendario</p><h2>Próximos encuentros</h2></div>
+                        <Link v-if="context && can('schedule.view')" href="/liga/calendario" class="dashboard-surface__link">Ver calendario <span aria-hidden="true">→</span></Link>
                     </div>
-                    <div class="min-w-0">
-                        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Acceso activo</p>
-                        <p class="truncate font-semibold text-slate-900">{{ context.league.name }} · {{ context.role.name }}</p>
-                    </div>
-                </div>
-                <span class="inline-flex w-fit items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
-                    <span class="relative flex h-2 w-2"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60"></span><span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span></span>
-                    Contexto aislado y activo
-                </span>
-            </div>
-        </section>
-
-        <section class="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Indicadores principales">
-            <article class="dashboard-stat">
-                <div class="flex items-start justify-between"><AppIcon name="clipboard" variant="illustrated" :size="58" /><span class="dashboard-stat-trend">Por atender</span></div>
-                <div class="mt-5"><strong class="text-3xl font-bold text-slate-900">{{ props.summary.pendingTasks }}</strong><p class="mt-1 text-sm font-semibold text-slate-600">Tareas pendientes</p></div>
-                <div class="mt-4 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-gold-500" :style="{ width: progress(props.summary.pendingTasks, 10) }"></div></div>
-            </article>
-            <article class="dashboard-stat">
-                <div class="flex items-start justify-between"><AppIcon name="calendar" variant="illustrated" :size="58" /><span class="dashboard-stat-trend">Próximos</span></div>
-                <div class="mt-5"><strong class="text-3xl font-bold text-slate-900">{{ props.summary.upcomingMatches }}</strong><p class="mt-1 text-sm font-semibold text-slate-600">Partidos programados</p></div>
-                <div class="mt-4 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-league-600" :style="{ width: progress(props.summary.upcomingMatches, 8) }"></div></div>
-            </article>
-            <Link v-if="context && can('notifications.view')" href="/liga/avisos" class="dashboard-stat transition hover:-translate-y-0.5 hover:border-league-600">
-                <div class="flex items-start justify-between"><AppIcon name="bell" variant="illustrated" :size="58" /><span class="dashboard-stat-trend">Sin leer</span></div>
-                <div class="mt-5"><strong class="text-3xl font-bold text-slate-900">{{ props.summary.notifications }}</strong><p class="mt-1 text-sm font-semibold text-slate-600">Notificaciones</p></div>
-                <div class="mt-4 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-rose-500" :style="{ width: progress(props.summary.notifications, 10) }"></div></div>
-            </Link>
-            <article v-else class="dashboard-stat">
-                <div class="flex items-start justify-between"><AppIcon name="bell" variant="illustrated" :size="58" /></div>
-                <div class="mt-5"><strong class="text-3xl font-bold text-slate-900">{{ props.summary.notifications }}</strong><p class="mt-1 text-sm font-semibold text-slate-600">Notificaciones</p></div>
-            </article>
-            <article class="dashboard-stat">
-                <div class="flex items-start justify-between"><AppIcon name="team" variant="illustrated" :size="58" /><span class="dashboard-stat-trend">Liga activa</span></div>
-                <div class="mt-5"><strong class="text-3xl font-bold text-slate-900">{{ props.summary.activeTeams }}</strong><p class="mt-1 text-sm font-semibold text-slate-600">Equipos activos</p></div>
-                <div class="mt-4 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-sky-500" :style="{ width: progress(props.summary.activeTeams, 20) }"></div></div>
-            </article>
-        </section>
-
-        <section v-if="context && quickActions.length" class="mt-8">
-            <div class="mb-4"><p class="section-eyebrow">Atajos</p><h2 class="section-title">Accesos rápidos</h2></div>
-            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <Link v-for="(action, index) in quickActions" :key="action.label" :href="action.href"
-                    class="quick-action-tile group" :style="quickActionStyle(index)">
-                    <span class="quick-action-icon" aria-hidden="true">
-                        <AppIcon :name="action.icon" variant="illustrated" :size="40" class="transition-transform duration-200 group-hover:scale-110" />
-                    </span>
-                    <span class="quick-action-content">
-                        <strong class="quick-action-name">{{ action.label }}</strong>
-                        <small class="quick-action-description">{{ action.description }}</small>
-                    </span>
-                    <span class="quick-action-art" aria-hidden="true">
-                        <AppIcon :name="action.icon" variant="illustrated" :size="64" class="transition-transform duration-300 group-hover:scale-110" />
-                    </span>
-                </Link>
-            </div>
-        </section>
-
-        <section class="mt-8 grid gap-6 xl:grid-cols-[1.35fr_.85fr]">
-            <article class="dashboard-panel">
-                <div class="flex items-end justify-between gap-4 border-b border-slate-100 px-5 py-5 sm:px-6">
-                    <div><p class="section-eyebrow">Calendario</p><h2 class="section-title">Próximos encuentros</h2></div>
-                    <Link v-if="context && can('schedule.view')" href="/liga/calendario" class="text-sm font-bold text-league-700 hover:underline">Ver calendario</Link>
-                </div>
-                <div v-if="props.upcomingMatches.length" class="divide-y divide-slate-100">
-                    <div v-for="match in props.upcomingMatches" :key="match.id" class="grid gap-4 px-5 py-4 transition hover:bg-slate-50/80 sm:grid-cols-[8rem_1fr_auto] sm:items-center sm:px-6">
-                        <div><p class="text-xs font-bold uppercase tracking-wide text-league-700">{{ formatDate(match.scheduledAt, { weekday: 'short', day: 'numeric', month: 'short' }) }}</p><p class="mt-1 text-lg font-bold text-slate-900">{{ formatDate(match.scheduledAt, { hour: '2-digit', minute: '2-digit', hour12: true }) }}</p></div>
-                        <div class="min-w-0">
-                            <div class="flex flex-wrap items-center gap-3 sm:gap-4">
-                                <div class="flex min-w-0 flex-1 items-center gap-2.5">
-                                    <div class="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
-                                        <img v-if="match.homeCrestUrl" :src="match.homeCrestUrl" :alt="`Escudo de ${match.homeTeam}`" class="h-full w-full object-contain" loading="lazy" />
-                                        <AppIcon v-else name="football" :size="25" class="text-slate-400" />
-                                    </div>
-                                    <span class="min-w-0 text-sm font-bold leading-tight text-slate-900">{{ match.homeTeam }}</span>
-                                </div>
-                                <span class="shrink-0 rounded-full bg-gold-100 px-2.5 py-1 text-xs font-extrabold text-league-800">VS</span>
-                                <div class="flex min-w-0 flex-1 items-center justify-end gap-2.5">
-                                    <span class="min-w-0 text-right text-sm font-bold leading-tight text-slate-900">{{ match.awayTeam }}</span>
-                                    <div class="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
-                                        <img v-if="match.awayCrestUrl" :src="match.awayCrestUrl" :alt="`Escudo de ${match.awayTeam}`" class="h-full w-full object-contain" loading="lazy" />
-                                        <AppIcon v-else name="football" :size="25" class="text-slate-400" />
-                                    </div>
-                                </div>
+                    <div v-if="upcomingMatches.length" class="dashboard-matches">
+                        <div v-for="match in upcomingMatches" :key="match.id" class="dashboard-match">
+                            <div class="dashboard-match__date">
+                                <span>{{ formatDate(match.scheduledAt, { weekday: 'short' }) }}</span>
+                                <strong>{{ formatDate(match.scheduledAt, { day: '2-digit' }) }}</strong>
+                                <span>{{ formatDate(match.scheduledAt, { month: 'short' }) }}</span>
                             </div>
-                            <p class="mt-2 text-xs text-slate-500">{{ match.matchday }} · {{ match.competition ?? 'Competencia' }}</p>
+                            <div class="dashboard-match__time">{{ formatDate(match.scheduledAt, { hour: '2-digit', minute: '2-digit', hour12: true }) }}</div>
+                            <div class="dashboard-match__teams">
+                                <div class="dashboard-match__line">
+                                    <div class="dashboard-match__team dashboard-match__team--home">
+                                        <span class="dashboard-match__crest">
+                                            <img v-if="logoVisible(`home-${match.id}`, match.homeCrestUrl)" :src="match.homeCrestUrl!" :alt="`Escudo de ${match.homeTeam}`" loading="lazy" @error="markLogoBroken(`home-${match.id}`)">
+                                            <span v-else>{{ teamInitials(match.homeTeam) }}</span>
+                                        </span>
+                                        <strong>{{ match.homeTeam }}</strong>
+                                    </div>
+                                    <span class="dashboard-match__vs">VS</span>
+                                    <div class="dashboard-match__team dashboard-match__team--away">
+                                        <strong>{{ match.awayTeam }}</strong>
+                                        <span class="dashboard-match__crest">
+                                            <img v-if="logoVisible(`away-${match.id}`, match.awayCrestUrl)" :src="match.awayCrestUrl!" :alt="`Escudo de ${match.awayTeam}`" loading="lazy" @error="markLogoBroken(`away-${match.id}`)">
+                                            <span v-else>{{ teamInitials(match.awayTeam) }}</span>
+                                        </span>
+                                    </div>
+                                </div>
+                                <p>{{ match.matchday }} · {{ match.competition ?? 'Competencia' }}</p>
+                            </div>
+                            <span class="dashboard-match__field" :title="match.field"><AppIcon name="field" :size="15" /> {{ match.field }}</span>
                         </div>
-                        <span class="w-fit rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600">{{ match.field }}</span>
                     </div>
-                </div>
-                <div v-else class="px-6 py-12 text-center"><AppIcon name="football" variant="illustrated" :size="54" class="mx-auto" /><p class="mt-3 font-semibold text-slate-700">No hay partidos próximos</p><p class="mt-1 text-sm text-slate-500">Los encuentros programados aparecerán aquí.</p></div>
-            </article>
+                    <div v-else class="dashboard-empty"><AppIcon name="calendar" :size="36" /><strong>No hay encuentros próximos</strong><p>Los partidos programados aparecerán aquí.</p></div>
+                </article>
 
-            <article class="dashboard-panel">
-                <div class="flex items-end justify-between gap-4 border-b border-slate-100 px-5 py-5 sm:px-6">
-                    <div><p class="section-eyebrow">Seguimiento</p><h2 class="section-title">Actividad reciente</h2></div>
-                    <Link v-if="context && can('audit.view')" href="/liga/bitacora" class="text-sm font-bold text-league-700 hover:underline">Ver bitácora</Link>
-                </div>
-                <div v-if="props.recentActivity.length" class="px-5 py-2 sm:px-6">
-                    <div v-for="(entry, index) in props.recentActivity" :key="entry.id" class="relative flex gap-3 py-3.5">
-                        <div v-if="index < props.recentActivity.length - 1" class="absolute left-[7px] top-7 h-[calc(100%-1rem)] w-px bg-slate-200"></div>
-                        <span class="relative mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 border-white bg-gold-500 ring-2 ring-gold-400/25"></span>
-                        <div class="min-w-0"><p class="text-sm font-semibold leading-snug text-slate-800">{{ activityLabel(entry.action) }}</p><p class="mt-1 text-xs text-slate-500">{{ entry.actor }} · {{ formatDate(entry.createdAt, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) }}</p></div>
+                <article class="dashboard-surface">
+                    <div class="dashboard-surface__heading">
+                        <div><p class="dashboard-surface__eyebrow"><AppIcon name="chart" :size="16" /> Seguimiento</p><h2>Actividad reciente</h2></div>
+                        <Link v-if="context && can('audit.view')" href="/liga/bitacora" class="dashboard-surface__link">Ver bitácora <span aria-hidden="true">→</span></Link>
                     </div>
-                </div>
-                <div v-else class="px-6 py-12 text-center"><p class="font-semibold text-slate-700">Sin actividad reciente</p><p class="mt-1 text-sm text-slate-500">Los movimientos de la liga se mostrarán aquí.</p></div>
-            </article>
-        </section>
+                    <div v-if="recentActivity.length" class="dashboard-timeline">
+                        <div v-for="entry in recentActivity.slice(0, 5)" :key="entry.id" class="dashboard-timeline__entry">
+                            <span class="dashboard-timeline__icon"><AppIcon :name="activityIcon(entry.action)" :size="21" /></span>
+                            <div><strong>{{ activityLabel(entry.action) }}</strong><p>{{ entry.actor }} · {{ formatDate(entry.createdAt, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) }}</p></div>
+                        </div>
+                    </div>
+                    <div v-else class="dashboard-empty"><AppIcon name="clipboard" :size="36" /><strong>Sin actividad reciente</strong><p>Los movimientos de esta liga aparecerán aquí.</p></div>
+                </article>
+            </section>
+        </main>
     </AppLayout>
 </template>
 
 <style scoped>
 @reference "../../css/app.css";
-
-.dashboard-hero {
-    position: relative;
-    background-image: linear-gradient(105deg, color-mix(in srgb, var(--color-league-900) 94%, #07152b), color-mix(in srgb, var(--color-league-600) 70%, transparent)), url('/images/public/league-stadium.jpg');
-    background-position: center 58%;
-    background-size: cover;
-}
-.dashboard-hero::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(4, 15, 30, .24), transparent 65%); }
-.dashboard-stat { @apply min-h-48 rounded-2xl border border-white/80 bg-white/95 p-5 shadow-md shadow-slate-900/5 backdrop-blur; }
-.dashboard-stat-icon { @apply grid h-10 w-10 place-items-center rounded-xl bg-league-50 font-bold text-league-700; }
-.dashboard-stat-trend { @apply rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-500; }
-.dashboard-panel { @apply overflow-hidden rounded-2xl border border-white/80 bg-white/95 shadow-md shadow-slate-900/5 backdrop-blur; }
-.section-eyebrow { @apply text-[10px] font-bold uppercase tracking-[0.2em] text-gold-500; }
-.section-title { @apply mt-1 text-xl font-bold text-slate-900; }
-
-/* Accesos rápidos: tarjetas compactas inspiradas en la referencia, con colores de la liga activa. */
-.quick-action-tile {
-    position: relative;
-    display: flex;
-    min-height: 94px;
-    align-items: center;
-    gap: 12px;
-    overflow: hidden;
-    isolation: isolate;
-    padding: 14px 78px 14px 14px;
-    border: 1px solid color-mix(in srgb, var(--quick-primary) 16%, white);
-    border-radius: 17px;
-    background: linear-gradient(110deg, #fff 0%, #fff 58%, var(--quick-background) 100%);
-    box-shadow: 0 8px 22px rgba(16, 27, 48, .10);
-    transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
-}
-.quick-action-tile::after {
-    content: '';
-    position: absolute;
-    z-index: -1;
-    inset: 0 0 0 auto;
-    width: 30%;
-    background: linear-gradient(145deg, var(--quick-primary), var(--quick-secondary));
-    clip-path: polygon(36% 0, 100% 0, 100% 100%, 0 100%);
-    opacity: .94;
-}
-.quick-action-tile:hover,
-.quick-action-tile:focus-visible {
-    transform: translateY(-3px);
-    border-color: var(--quick-secondary);
-    box-shadow: 0 14px 28px color-mix(in srgb, var(--quick-primary) 21%, transparent);
-}
-.quick-action-tile:focus-visible { outline: 3px solid var(--quick-secondary); outline-offset: 3px; }
-.quick-action-icon {
-    display: grid;
-    width: 42px;
-    height: 42px;
-    flex: 0 0 42px;
-    place-items: center;
-    border-radius: 12px;
-    background: color-mix(in srgb, var(--quick-primary) 10%, white);
-}
-.quick-action-content { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 3px; }
-.quick-action-name { color: #16243d; font-size: 13px; font-weight: 800; line-height: 1.25; }
-.quick-action-description { color: #53617a; font-size: 11px; line-height: 1.35; }
-.quick-action-art {
-    position: absolute;
-    right: 7px;
-    top: 50%;
-    display: grid;
-    height: 72px;
-    width: 72px;
-    place-items: center;
-    transform: translateY(-50%);
-    filter: drop-shadow(0 4px 5px rgba(0, 0, 0, .14));
-}
-@media (max-width: 420px) {
-    .quick-action-tile { padding-right: 70px; }
-    .quick-action-art { right: 1px; }
-}
-@media (prefers-reduced-motion: reduce) {
-    .quick-action-tile { transition: none; }
-    .quick-action-tile:hover { transform: none; }
-}
+.dashboard-premium { --dashboard-accent: var(--color-league-600, #6445bd); --dashboard-secondary: var(--color-gold-500, #a14bd6); display: grid; gap: 0; padding-bottom: 1.5rem; }
+.dashboard-hero { position: relative; overflow: hidden; border-radius: 1.6rem; background: linear-gradient(100deg, color-mix(in srgb, var(--dashboard-accent) 84%, #07152b) 0%, color-mix(in srgb, var(--dashboard-accent) 76%, var(--dashboard-secondary)) 56%, color-mix(in srgb, var(--dashboard-accent) 72%, #07152b) 100%), url('/images/public/league-stadium.jpg'); background-position: center 58%; background-size: cover; box-shadow: 0 16px 34px rgba(18,35,68,.18); isolation: isolate; color: #fff; }
+.dashboard-hero::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(12,18,49,.30), transparent 58%), url('/images/public/league-stadium.jpg') center 57% / cover; opacity: .23; pointer-events: none; }
+.dashboard-hero__inner { display:flex; align-items:center; justify-content:space-between; gap:1.5rem; padding:1.55rem 2rem; min-height: 164px; }
+.dashboard-kicker { color:rgba(255,255,255,.85); text-transform:uppercase; font-size:.72rem; font-weight:800; letter-spacing:.16em; }
+.dashboard-hero h1 { margin-top:.35rem; font-size:clamp(1.65rem,2.6vw,2.35rem); line-height:1.18; font-weight:800; letter-spacing:-.03em; }
+.dashboard-hero__description { margin-top:.35rem; font-size:.94rem; color:rgba(255,255,255,.88); }
+.dashboard-context { display:flex; align-items:center; flex-wrap:wrap; gap:.7rem; margin-top:.95rem; font-size:.84rem; }
+.dashboard-context__logo { display:grid; place-items:center; width:2.25rem; height:2.25rem; flex-shrink:0; background:white; color:#213c69; border-radius:.7rem; overflow:hidden; font-weight:800; }
+.dashboard-context__logo img { width:100%; height:100%; object-fit:contain; padding:3px; }
+.dashboard-context__name { font-weight:750; }.dashboard-context__role { color:rgba(255,255,255,.86); }.dashboard-context__separator { height:1.15rem; width:1px; background:rgba(255,255,255,.40); }
+.dashboard-context__status { display:inline-flex; align-items:center; gap:.4rem; margin-left:.15rem; padding:.32rem .7rem; background:#c9f9dc; color:#136737; border-radius:999px; font-size:.73rem; font-weight:800; }
+.dashboard-context__dot { height:.42rem; width:.42rem; border-radius:50%; background:#08a64e; }
+.dashboard-context-switch { display:inline-flex; flex-shrink:0; align-items:center; justify-content:center; gap:.5rem; padding:.7rem 1rem; border:1px solid rgba(255,255,255,.82); color:white; font-size:.83rem; border-radius:.75rem; font-weight:750; background:rgba(8,23,64,.2); transition:background .18s; }
+.dashboard-context-switch:hover { background:rgba(255,255,255,.18); }
+.dashboard-kpis { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.9rem; margin-top:1rem; }
+.dashboard-kpi { min-width:0; display:block; padding:1.15rem 1.25rem; background:rgba(255,255,255,.97); border:1px solid rgba(220,227,241,.95); border-radius:1rem; box-shadow:0 7px 21px rgba(35,55,95,.08); transition:transform .18s,border-color .18s; }
+.dashboard-kpi--link:hover { transform:translateY(-2px); border-color:var(--dashboard-accent); }
+.dashboard-kpi__top { display:flex; align-items:flex-start; justify-content:space-between; gap:.5rem; }
+.dashboard-kpi__icon,.dashboard-shortcut__icon { display:grid; place-items:center; width:2.75rem; height:2.75rem; flex-shrink:0; border-radius:.83rem; color:var(--dashboard-accent); background:color-mix(in srgb,var(--dashboard-accent) 10%,white); }
+.dashboard-kpi__tag { color:var(--dashboard-accent); background:color-mix(in srgb,var(--dashboard-accent) 9%,white); border-radius:99px; padding:.27rem .65rem; font-weight:750; font-size:.67rem; white-space:nowrap; }
+.dashboard-kpi__tag--success { color:#12783b; background:#d8f9e3; }
+.dashboard-kpi strong { display:block; font-size:2rem; font-weight:800; line-height:1.1; margin-top:.63rem; color:#111b39; }
+.dashboard-kpi p { color:#475569; font-size:.91rem; margin-top:.12rem; }
+.dashboard-shortcuts { margin-top:1.2rem; }.dashboard-shortcuts h2 { font-size:1.25rem; font-weight:800; letter-spacing:-.03em; color:#111c3b; margin-bottom:.8rem; }
+.dashboard-shortcuts__grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.85rem; }
+.dashboard-shortcut { display:flex; align-items:center; gap:.75rem; min-width:0; padding:.9rem .95rem; border:1px solid #e1e7f1; border-radius:1rem; background:#fff; box-shadow:0 7px 17px rgba(35,55,95,.08); transition:transform .18s,border-color .18s; }
+.dashboard-shortcut:hover { transform:translateY(-2px); border-color:var(--dashboard-accent); }
+.dashboard-shortcut__icon { width:2.5rem; height:2.5rem; }.dashboard-shortcut__text { flex:1; min-width:0; }.dashboard-shortcut__text strong { display:block; color:#111c39; font-size:.81rem; line-height:1.2; }.dashboard-shortcut__text small { display:block; color:#64748b; font-size:.7rem; margin-top:.28rem; line-height:1.3; }.dashboard-shortcut__arrow { flex-shrink:0; color:#718096; }
+.dashboard-detail-grid { display:grid; grid-template-columns:minmax(0,1.48fr) minmax(0,1fr); gap:1rem; margin-top:1.2rem; align-items:stretch; }
+.dashboard-surface { min-width:0; min-height:270px; overflow:hidden; background:rgba(255,255,255,.97); border:1px solid #e0e7f1; border-radius:1.1rem; box-shadow:0 9px 24px rgba(35,55,95,.08); padding:1.1rem 1.15rem; }
+.dashboard-surface__heading { display:flex; justify-content:space-between; gap:1rem; align-items:center; padding-bottom:.9rem; border-bottom:1px solid #e7edf5; }.dashboard-surface__eyebrow { display:flex; align-items:center; gap:.4rem; color:var(--dashboard-accent); text-transform:uppercase; letter-spacing:.11em; font-size:.7rem; font-weight:800; }.dashboard-surface h2 { color:#101a37; font-size:1.35rem; font-weight:800; line-height:1.2; margin-top:.2rem; }.dashboard-surface__link { display:inline-flex; align-items:center; gap:.25rem; flex-shrink:0; color:var(--dashboard-accent); font-size:.77rem; font-weight:750; }.dashboard-surface__link:hover { text-decoration:underline; }
+.dashboard-matches { display:grid; gap:.65rem; padding-top:.95rem; }.dashboard-match { display:flex; gap:.65rem; align-items:center; min-width:0; border:1px solid #e0e7f2; border-radius:.85rem; padding:.75rem; background:linear-gradient(180deg,#fff,#fcfdff); }
+.dashboard-match__date { flex-shrink:0; display:grid; justify-items:center; min-width:3.25rem; background:color-mix(in srgb,var(--dashboard-accent) 10%,white); border-radius:.7rem; padding:.4rem .35rem; color:var(--dashboard-accent); }.dashboard-match__date span { text-transform:uppercase; font-size:.64rem; font-weight:750; }.dashboard-match__date strong { font-size:1.4rem; font-weight:850; line-height:1.18; }.dashboard-match__time { white-space:nowrap; padding-right:.65rem; border-right:1px solid #dce4f1; font-size:.77rem; color:#162340; font-weight:800; }
+.dashboard-match__teams { flex:1; min-width:0; }.dashboard-match__line { display:flex; align-items:center; gap:.35rem; min-width:0; }.dashboard-match__team { display:flex; align-items:center; gap:.4rem; min-width:0; flex:1; }.dashboard-match__team--away { justify-content:flex-end; text-align:right; }.dashboard-match__team strong { color:#17203b; font-size:.76rem; line-height:1.25; font-weight:800; overflow-wrap:anywhere; }.dashboard-match__crest { display:grid; flex-shrink:0; place-items:center; width:2.2rem; height:2.2rem; border:1px solid #dce3f0; border-radius:.65rem; background:#fff; overflow:hidden; font-size:.64rem; color:var(--dashboard-accent); font-weight:800; }.dashboard-match__crest img { width:100%; height:100%; object-fit:contain; padding:2px; }.dashboard-match__vs { font-size:.66rem; font-weight:800; color:#475569; border-radius:.55rem; padding:.35rem .48rem; background:#f0f3fa; }.dashboard-match__teams p { color:#64748b; font-size:.66rem; margin-top:.27rem; text-align:center; }.dashboard-match__field { flex-shrink:0; display:inline-flex; align-items:center; gap:.25rem; max-width:8rem; background:#f0f3f9; padding:.4rem .5rem; border-radius:99px; color:#475569; font-size:.65rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.dashboard-timeline { padding:.45rem 0; }.dashboard-timeline__entry { position:relative; display:flex; align-items:center; gap:.65rem; padding:.55rem .2rem; }.dashboard-timeline__entry:not(:last-child) { border-bottom:1px solid #edf0f5; }.dashboard-timeline__entry:not(:last-child)::after { content:''; position:absolute; left:1.12rem; bottom:-.55rem; width:1px; height:1.15rem; background:color-mix(in srgb,var(--dashboard-accent) 30%,white); }.dashboard-timeline__icon { display:grid; flex-shrink:0; place-items:center; border-radius:50%; width:2.25rem; height:2.25rem; background:color-mix(in srgb,var(--dashboard-accent) 9%,white); color:var(--dashboard-accent); }.dashboard-timeline__entry strong { font-size:.79rem; color:#151f3a; font-weight:800; display:block; line-height:1.3; }.dashboard-timeline__entry p { font-size:.69rem; color:#64748b; margin-top:.12rem; }.dashboard-empty { display:flex; align-items:center; flex-direction:column; justify-content:center; min-height:180px; color:var(--dashboard-accent); text-align:center; gap:.4rem; }.dashboard-empty strong { color:#18243e; margin-top:.25rem; }.dashboard-empty p { color:#64748b; font-size:.78rem; }
+@media (max-width:1250px) { .dashboard-shortcuts__grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.dashboard-match__field { display:none; } }
+@media (max-width:950px) { .dashboard-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }.dashboard-detail-grid { grid-template-columns:1fr; } }
+@media (max-width:650px) { .dashboard-hero__inner { padding:1.35rem; align-items:flex-start; flex-direction:column; }.dashboard-context-switch { width:100%; }.dashboard-context__separator { display:none; }.dashboard-kpis { gap:.65rem; }.dashboard-kpi { padding:.8rem; }.dashboard-kpi__tag { font-size:.59rem; padding:.2rem .4rem; }.dashboard-kpi__icon { height:2.25rem; width:2.25rem; }.dashboard-shortcuts__grid { grid-template-columns:1fr; }.dashboard-surface { padding:.9rem; }.dashboard-match { flex-wrap:wrap; }.dashboard-match__teams { flex-basis:calc(100% - 7rem); }.dashboard-match__field { display:inline-flex; max-width:100%; margin-left:3.5rem; }.dashboard-match__team strong { font-size:.72rem; } }
 </style>

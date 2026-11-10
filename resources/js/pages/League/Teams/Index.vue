@@ -32,6 +32,23 @@ const representativeTeam = ref<Team | null>(null);
 const participationTeam = ref<Team | null>(null);
 const teamSearch = ref('');
 const teamStatusFilter = ref('all');
+const teamOrder = ref('newest');
+const teamView = ref<'list' | 'grid'>('list');
+const openTeamMenu = ref<number | null>(null);
+const registrationStep = ref(0);
+const registrationAlert = ref('');
+const requestSearch = ref('');
+const requestType = ref('all');
+const requestStatus = ref('pending');
+const stepNames = ['Identidad y colores', 'Competencia y contacto', 'Escudo y documentos', 'Representante', 'Confirmación'];
+const stepDescriptions = ['Datos generales e identidad visual', 'Competencia, contacto y medios', 'Escudo del equipo y documentos', 'Datos del representante y permisos', 'Revisa la información y registra'];
+const requestTypes = [
+    { icon: 'users', title: 'Cambios de representante', description: 'Actualizaciones del responsable o datos de contacto.' },
+    { icon: 'trophy', title: 'Nuevas participaciones', description: 'Inscripciones de equipos en competencias de la liga.' },
+    { icon: 'file', title: 'Actualizaciones de documentos', description: 'Carga o renovación de archivos requeridos.' },
+    { icon: 'edit', title: 'Revisiones de datos', description: 'Correcciones o complementos de información.' },
+];
+
 const creationSteps = [
     'Completa la identidad y clasificación del equipo.',
     'Define la competencia y los datos de contacto.',
@@ -63,7 +80,29 @@ const visibleTeams = computed(() => props.teams.filter((team) => {
     const query = teamSearch.value.trim().toLocaleLowerCase('es-MX');
     const matchesQuery = !query || [team.name, team.short_name, team.active_representative?.user.name ?? ''].some((value) => value.toLocaleLowerCase('es-MX').includes(query));
     return matchesQuery && (teamStatusFilter.value === 'all' || team.status === teamStatusFilter.value);
-}));
+}).sort((a, b) => teamOrder.value === 'az' ? a.name.localeCompare(b.name, 'es') : teamOrder.value === 'za' ? b.name.localeCompare(a.name, 'es') : b.id - a.id));
+const filteredParticipations = computed(() => pendingParticipations.value.filter(({team, participation}) =>
+    (requestType.value === 'all' || requestType.value === 'participation') &&
+    (requestStatus.value === 'all' || participation.status === requestStatus.value) &&
+    (!requestSearch.value || `${team.name} ${participation.competition.name}`.toLowerCase().includes(requestSearch.value.toLowerCase()))
+));
+const filteredChanges = computed(() => pendingChanges.value.filter(({team, change}) =>
+    (requestType.value === 'all' || requestType.value === 'change') &&
+    (requestStatus.value === 'all' || change.status === requestStatus.value) &&
+    (!requestSearch.value || `${team.name} ${change.request_reason} ${change.requester.name}`.toLowerCase().includes(requestSearch.value.toLowerCase()))
+));
+function goRegistrationStep(next: number) {
+    registrationAlert.value = '';
+    if (next > registrationStep.value) {
+        const invalid = registrationStep.value === 0 ? !createForm.name.trim() || !createForm.short_name.trim()
+            : registrationStep.value === 1 ? !createForm.competition_id
+            : registrationStep.value === 3 ? !createForm.league_membership_id || !createForm.representative_photo || !createForm.representative_ine
+            : false;
+        if (invalid) { registrationAlert.value = 'Completa los campos obligatorios de este paso para continuar.'; return; }
+    }
+    registrationStep.value = Math.max(0, Math.min(4, next));
+}
+
 const labels: Record<string, string> = {
     pending: 'Pendiente', active: 'Activo', suspended: 'Suspendido', inactive: 'Inactivo', deregistered: 'Baja', rejected: 'Rechazado',
 };
@@ -74,7 +113,11 @@ function statusClass(status: string): string {
     return ({ active: 'entity-status-active', pending: 'entity-status-pending', suspended: 'entity-status-suspended', rejected: 'entity-status-rejected', inactive: 'entity-status-neutral', deregistered: 'entity-status-neutral' } as Record<string, string>)[status] ?? 'entity-status-neutral';
 }
 function submitTeam() {
-    createForm.post('/liga/equipos', { forceFormData: true, preserveScroll: true, onSuccess: () => { createForm.reset(); activeTab.value = 'equipos'; } });
+    const check = !createForm.name.trim() ? 0 : !createForm.short_name.trim() ? 0 : !createForm.competition_id ? 1 :
+        (!createForm.league_membership_id || !createForm.representative_photo || !createForm.representative_ine) ? 3 : !createForm.reason.trim() ? 4 : -1;
+    if (check >= 0) { registrationStep.value = check; registrationAlert.value = 'Revisa los campos obligatorios antes de registrar el equipo.'; return; }
+    registrationAlert.value = '';
+    createForm.post('/liga/equipos', { forceFormData: true, preserveScroll: true, onSuccess: () => { createForm.reset(); registrationStep.value = 0; activeTab.value = 'equipos'; } });
 }
 function startEdit(team: Team) {
     editingTeam.value = team;
@@ -125,37 +168,46 @@ function submitParticipation() {
             <div class="participants-hero">
                 <div class="participants-hero-content">
                     <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-                        <div class="max-w-2xl"><p class="text-xs font-bold uppercase tracking-[0.24em] text-gold-400">Participantes · Módulo 5</p><h1 class="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Equipos y representantes</h1><p class="mt-2 text-sm text-white/75 sm:text-base">Centraliza la identidad de cada club, sus responsables y la participación en las competencias de la liga.</p></div>
+                        <div class="max-w-2xl"><p class="text-xs font-bold uppercase tracking-[0.24em] text-amber-200">Participantes · Módulo 5</p><h1 class="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Equipos y representantes</h1><p class="mt-2 text-sm text-white/75 sm:text-base">Centraliza la identidad de cada club, sus responsables y la participación en las competencias de la liga.</p></div>
                         <button v-if="canManage" class="participants-hero-cta" @click="activeTab = 'registrar'"><AppIcon name="users" :size="20" /> Registrar equipo</button>
                     </div>
                 </div>
             </div>
 
             <div class="mt-6 overflow-x-auto"><div class="participants-tabs">
-                <button v-for="tab in tabs" :key="tab[0]" type="button" class="participants-tab" :class="activeTab === tab[0] ? 'participants-tab-active' : ''" @click="activeTab = tab[0]"><span class="participants-tab-icon"><AppIcon :name="({ resumen: 'chart', registrar: 'users', equipos: 'team', solicitudes: 'clipboard' } as Record<string,string>)[tab[0]] ?? 'team'" :size="19" /></span>{{ tab[1] }}</button>
+                <button v-for="tab in tabs" :key="tab[0]" type="button" class="participants-tab" :class="activeTab === tab[0] ? 'participants-tab-active' : ''" @click="activeTab = tab[0]"><AppIcon :name="({ resumen: 'chart', registrar: 'badge', equipos: 'team', solicitudes: 'clipboard' } as Record<string,string>)[tab[0]] ?? 'team'" :size="19" />{{ tab[1] }}</button>
             </div></div>
 
             <div v-if="activeTab === 'resumen' && canManage" class="mt-7 space-y-6">
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <div class="participants-stat"><span class="participants-stat-icon"><AppIcon name="team" variant="illustrated" :size="52" /></span><div><strong>{{ teams.length }}</strong><p>Equipos registrados</p></div></div>
-                    <div class="participants-stat"><span class="participants-stat-icon"><AppIcon name="check" variant="illustrated" :size="52" /></span><div><strong>{{ teams.filter((team) => team.status === 'active').length }}</strong><p>Equipos activos</p></div></div>
-                    <div class="participants-stat"><span class="participants-stat-icon"><AppIcon name="clock" variant="illustrated" :size="52" /></span><div><strong>{{ pendingParticipations.length }}</strong><p>Participaciones pendientes</p></div></div>
-                    <div class="participants-stat"><span class="participants-stat-icon"><AppIcon name="edit" variant="illustrated" :size="52" /></span><div><strong>{{ pendingChanges.length }}</strong><p>Cambios por revisar</p></div></div>
+                    <div class="participants-stat"><span class="participants-stat-icon"><AppIcon name="users" :size="26" /></span><div><strong>{{ teams.length }}</strong><p>Equipos registrados</p></div></div>
+                    <div class="participants-stat"><span class="participants-stat-icon bg-emerald-50 text-emerald-700"><AppIcon name="check" :size="26" /></span><div><strong>{{ teams.filter((team) => team.status === 'active').length }}</strong><p>Equipos activos</p></div></div>
+                    <div class="participants-stat"><span class="participants-stat-icon bg-amber-50 text-amber-700"><AppIcon name="clock" :size="26" /></span><div><strong>{{ pendingParticipations.length }}</strong><p>Participaciones pendientes</p></div></div>
+                    <div class="participants-stat"><span class="participants-stat-icon bg-sky-50 text-sky-700"><AppIcon name="edit" :size="26" /></span><div><strong>{{ pendingChanges.length }}</strong><p>Cambios por revisar</p></div></div>
                 </div>
-                <div v-if="!representatives.length" class="participants-empty-state"><div class="empty-icon"><AppIcon name="users" :size="40" /></div><h2>No hay representantes disponibles</h2><p>Crea o asigna primero un usuario con el rol Representante de equipo desde Miembros para poder gestionar los equipos de la liga.</p><div class="mt-5"><a href="/liga/miembros" class="participants-empty-link"><AppIcon name="users" :size="18" /> Ir a miembros</a></div></div>
+                <div class="summary-bottom-grid">
+                    <div v-if="!representatives.length" class="summary-empty premium-panel">
+                        <div class="summary-illustration"><AppIcon name="shield" :size="80" /><span class="summary-illustration-small"><AppIcon name="users" :size="38" /></span></div>
+                        <div><h2>Aún no hay representantes disponibles</h2><p>Crea o asigna primero un usuario con el rol Representante de equipo desde Miembros para que los clubes puedan gestionar su información, participaciones y contactos.</p>
+                            <div class="summary-buttons"><a href="/liga/miembros" class="btn-primary"><AppIcon name="users" :size="17" /> Ir a miembros</a><button type="button" class="btn-secondary" @click="activeTab = 'registrar'"><AppIcon name="users" :size="17" /> Registrar equipo</button></div>
+                        </div>
+                    </div>
+                    <div v-else class="premium-panel summary-empty"><div class="summary-illustration"><AppIcon name="check" :size="66" /></div><div><h2>{{ representatives.length }} representantes disponibles</h2><p>Ya puedes registrar nuevos clubes y asignarles una persona responsable.</p><button type="button" class="btn-primary mt-5" @click="activeTab='registrar'">Registrar equipo</button></div></div>
+                    <aside class="premium-panel next-steps"><div class="flex items-center gap-3"><span class="step-rocket"><AppIcon name="trophy" :size="24" /></span><div><h3>Próximos pasos</h3><p>Completa la configuración del módulo y ponlo en marcha.</p></div></div>
+                        <button type="button" class="next-step" @click="activeTab='registrar'"><span>1</span><div><strong>Registrar tu primer equipo</strong><small>Crea la identidad del club y su información básica.</small></div><b>›</b></button>
+                        <a class="next-step" href="/liga/miembros"><span>2</span><div><strong>Asignar representante</strong><small>Vincula un usuario autorizado a la liga.</small></div><b>›</b></a>
+                        <button type="button" class="next-step" @click="activeTab='equipos'"><span>3</span><div><strong>Gestionar participaciones</strong><small>Define en qué competencias participará el club.</small></div><b>›</b></button>
+                    </aside>
+                </div>
                 <div v-if="!competitions.length" class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">No hay competencias disponibles. Crea primero la temporada, torneo, división, categoría y competencia.</div>
             </div>
 
-            <form v-if="activeTab === 'registrar' && canManage" class="registration-shell registration-premium" @submit.prevent="submitTeam">
-                <header class="registration-heading">
-                    <div><span class="registration-step">Nuevo registro</span><h2 class="mt-3 text-2xl font-bold">Registrar equipo</h2><p class="mt-1 text-sm text-white/75">Integra la identidad, participación y responsable oficial del equipo.</p></div>
-                    <p class="max-w-xs text-xs leading-5 text-white/70"><span class="font-bold text-gold-400">*</span> Los campos marcados son obligatorios.</p>
-                </header>
-
-                <div class="registration-grid">
-                    <div class="registration-main">
-                        <section class="form-section premium-form-section">
-                            <div class="form-section-heading"><span class="form-section-icon"><AppIcon name="shield" :size="22" /></span><div><h3>Identidad y clasificación</h3><p>Información básica del equipo en la liga.</p></div></div>
+            <form v-if="activeTab === 'registrar' && canManage" class="registration-shell registration-premium" novalidate @submit.prevent="submitTeam">
+                <div class="registration-stepper"><button v-for="(name, index) in stepNames" :key="name" type="button" :class="['wizard-step', registrationStep === index ? 'wizard-step-active' : '']" @click="registrationStep = index; registrationAlert = ''"><span>{{ index + 1 }}</span><div><strong>{{ name }}</strong><small>{{ stepDescriptions[index] }}</small></div></button></div>
+                <div class="registration-grid wizard-layout">
+                    <div class="registration-main wizard-main">
+                        <section v-show="registrationStep === 0" class="form-section premium-form-section">
+                            <div class="form-section-heading"><span class="form-section-icon"><AppIcon name="shield" :size="22" /></span><div><h3>1. Identidad y colores</h3><p>Información básica del equipo en la liga.</p></div></div>
                             <div class="grid gap-5 sm:grid-cols-2">
                                 <div><label class="form-label">Nombre oficial<span class="form-required">*</span></label><input v-model="createForm.name" class="form-input" required maxlength="150" placeholder="Ej. Deportivo Municipal"><FormError :message="createForm.errors.name" /></div>
                                 <div><label class="form-label">Nombre corto<span class="form-required">*</span></label><input v-model="createForm.short_name" class="form-input" required maxlength="30" placeholder="Ej. D. Municipal"><p class="form-field-hint">Se utilizará en tablas y marcadores.</p><FormError :message="createForm.errors.short_name" /></div>
@@ -168,8 +220,8 @@ function submitParticipation() {
                             </div>
                         </section>
 
-                        <section class="form-section premium-form-section">
-                            <div class="form-section-heading"><span class="form-section-icon"><AppIcon name="trophy" :size="22" /></span><div><h3>Participación y contacto</h3><p>Competencia inicial y medios privados de comunicación.</p></div></div>
+                        <section v-show="registrationStep === 1" class="form-section premium-form-section">
+                            <div class="form-section-heading"><span class="form-section-icon"><AppIcon name="trophy" :size="22" /></span><div><h3>2. Competencia y contacto</h3><p>Competencia inicial y medios privados de comunicación.</p></div></div>
                             <div class="grid gap-5 sm:grid-cols-2">
                                 <div class="sm:col-span-2"><label class="form-label">Competencia<span class="form-required">*</span></label><select v-model="createForm.competition_id" class="form-input" required><option :value="null" disabled>Selecciona temporada, competencia, división y categoría</option><option v-for="competition in competitions" :key="competition.id" :value="competition.id">{{ competition.tournament.season.name }} · {{ competition.name }} · {{ competition.division.name }} · {{ competition.category.name }}</option></select><FormError :message="createForm.errors.competition_id" /></div>
                                 <div><label class="form-label">Teléfono privado</label><input v-model="createForm.phone" class="form-input" type="tel" maxlength="30" placeholder="Ej. 951 000 0000"><p class="form-field-hint">Visible solo para administración.</p></div>
@@ -177,16 +229,16 @@ function submitParticipation() {
                             </div>
                         </section>
 
-                        <section class="form-section premium-form-section">
-                            <div class="form-section-heading"><span class="form-section-icon"><AppIcon name="image" :size="22" /></span><div><h3>Recursos gráficos</h3><p>Archivos que identificarán al equipo en el portal y sus documentos.</p></div></div>
+                        <section v-show="registrationStep === 2" class="form-section premium-form-section">
+                            <div class="form-section-heading"><span class="form-section-icon"><AppIcon name="image" :size="22" /></span><div><h3>3. Escudo y documentos</h3><p>Archivos que identificarán al equipo en el portal y sus documentos.</p></div></div>
                             <div class="grid gap-5 sm:grid-cols-2">
                                 <div><label class="form-label">Escudo del equipo</label><div class="file-field"><input class="form-input" type="file" accept="image/jpeg,image/png,image/webp" @change="createForm.crest = file($event)"><p class="form-field-hint">JPG, PNG o WEBP. Preferentemente cuadrado.</p></div><FormError :message="createForm.errors.crest" /></div>
                                 <div><label class="form-label">Fotografía del equipo</label><div class="file-field"><input class="form-input" type="file" accept="image/jpeg,image/png,image/webp" @change="createForm.team_photo = file($event)"><p class="form-field-hint">Imagen grupal opcional del plantel.</p></div><FormError :message="createForm.errors.team_photo" /></div>
                             </div>
                         </section>
 
-                        <section class="form-section premium-form-section">
-                            <div class="form-section-heading"><span class="form-section-icon"><AppIcon name="users" :size="22" /></span><div><h3>Representante y permisos</h3><p>Persona responsable de la gestión del equipo ante la liga.</p></div></div>
+                        <section v-show="registrationStep === 3" class="form-section premium-form-section">
+                            <div class="form-section-heading"><span class="form-section-icon"><AppIcon name="users" :size="22" /></span><div><h3>4. Representante y permisos</h3><p>Persona responsable de la gestión del equipo ante la liga.</p></div></div>
                             <div class="grid gap-5 lg:grid-cols-2">
                                 <div class="lg:col-span-2"><label class="form-label">Usuario representante<span class="form-required">*</span></label><select v-model="createForm.league_membership_id" class="form-input" required><option :value="null" disabled>Selecciona un miembro con rol Representante</option><option v-for="representative in representatives" :key="representative.id" :value="representative.id">{{ representative.user.name }} · {{ representative.user.email }}</option></select><FormError :message="createForm.errors.league_membership_id" /></div>
                                 <div><label class="form-label">Fotografía del representante<span class="form-required">*</span></label><div class="file-field"><input class="form-input" type="file" required accept="image/jpeg,image/png,image/webp" @change="createForm.representative_photo = file($event)"><p class="form-field-hint">Imagen clara y reciente.</p></div><FormError :message="createForm.errors.representative_photo" /></div>
@@ -194,37 +246,40 @@ function submitParticipation() {
                             </div>
                         </section>
 
-                        <section class="form-section premium-form-section">
-                            <div class="form-section-heading"><span class="form-section-icon"><AppIcon name="edit" :size="26" /></span><div><h3>Justificación del registro</h3><p>Describe brevemente el motivo administrativo del alta.</p></div></div>
+                        <section v-show="registrationStep === 4" class="form-section premium-form-section">
+                            <div class="form-section-heading"><span class="form-section-icon"><AppIcon name="edit" :size="26" /></span><div><h3>5. Confirmación del registro</h3><p>Describe brevemente el motivo administrativo del alta.</p></div></div>
                             <label class="form-label">Motivo<span class="form-required">*</span></label><textarea v-model="createForm.reason" class="form-input min-h-24" required maxlength="500" placeholder="Ej. Alta para participar en la temporada vigente"></textarea><FormError :message="createForm.errors.reason" />
                         </section>
                     </div>
 
-                    <aside class="registration-aside">
-                        <div class="registration-note premium-guide"><div class="guide-header"><span class="guide-icon"><AppIcon name="file" :size="22" /></span><div><h3>Guía rápida</h3><p class="text-xs text-slate-500">Cinco pasos para un registro correcto.</p></div></div><ol class="guide-steps"><li v-for="(step, index) in creationSteps" :key="index"><span>{{ index + 1 }}</span><p>{{ step }}</p></li></ol><div class="guide-warning"><AppIcon name="shield" :size="19" /><p>Los archivos de identidad son privados. La participación inicial quedará pendiente de aprobación.</p></div></div>
+                    <aside class="registration-aside wizard-aside">
+                        <div class="registration-note premium-guide"><div class="guide-header"><span class="guide-icon"><AppIcon name="file" :size="22" /></span><div><h3>Guía del paso</h3><p class="text-xs text-slate-500">{{ stepDescriptions[registrationStep] }}</p></div></div>
+                            <p class="guide-copy">{{ creationSteps[registrationStep] }}</p><div class="guide-warning"><AppIcon name="shield" :size="18" /><p>El registro requiere una competencia y un representante autorizado. Los documentos privados no son públicos.</p></div></div>
                         <div v-if="!representatives.length || !competitions.length" class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-900">Debes contar con al menos un representante y una competencia disponibles para completar el registro.</div>
-                        <div class="registration-actions"><p class="mb-4 text-xs leading-5 text-slate-600">Al registrar confirmas que la información fue revisada.</p><button class="btn-primary" :disabled="createForm.processing || !representatives.length || !competitions.length"><span v-if="createForm.processing">Registrando…</span><span v-else>Registrar equipo</span></button></div>
+                        <div class="wizard-actions"><p v-if="registrationAlert" role="alert" class="wizard-alert">{{ registrationAlert }}</p><div class="flex flex-wrap items-center justify-end gap-2"><button v-if="registrationStep > 0" type="button" class="btn-secondary" @click="goRegistrationStep(registrationStep - 1)">← Anterior</button><button v-if="registrationStep < 4" type="button" class="btn-primary" @click="goRegistrationStep(registrationStep + 1)">Continuar →</button><button v-else type="submit" class="btn-primary" :disabled="createForm.processing || !representatives.length || !competitions.length">{{ createForm.processing ? 'Registrando…' : 'Registrar equipo' }}</button></div></div>
                     </aside>
                 </div>
             </form>
 
-            <div v-if="activeTab === 'equipos'" class="mt-7 space-y-5">
-                <div class="participants-toolbar premium-toolbar lg:grid-cols-[minmax(0,1fr)_14rem]"><div><label class="form-label">Buscar equipo o representante</label><input v-model="teamSearch" class="form-input" type="search" placeholder="Nombre, abreviatura o representante"></div><div><label class="form-label">Estado</label><select v-model="teamStatusFilter" class="form-input"><option value="all">Todos los estados</option><option v-for="(label, value) in labels" :key="value" :value="value">{{ label }}</option></select></div></div>
+            <div v-if="activeTab === 'equipos'" :class="['mt-7 space-y-5', teamView === 'grid' ? 'directory-grid' : '']">
+                <div class="premium-panel directory-shell"><div class="directory-title"><h2>Directorio de equipos</h2><p>Gestiona los equipos, sus representantes y sus participaciones en la liga.</p></div><div class="directory-filters"><input v-model="teamSearch" aria-label="Buscar equipo o representante" class="form-input" type="search" placeholder="⌕  Buscar equipo o representante..."><select v-model="teamStatusFilter" aria-label="Filtrar por estado" class="form-input"><option value="all">Estado: Todos</option><option v-for="(label, value) in labels" :key="value" :value="value">{{ label }}</option></select><select v-model="teamOrder" aria-label="Ordenar equipos" class="form-input"><option value="newest">Más recientes</option><option value="az">Nombre A-Z</option><option value="za">Nombre Z-A</option></select><div class="view-switch"><button type="button" title="Vista de lista" :class="teamView === 'list' ? 'selected' : ''" @click="teamView = 'list'"><AppIcon name="clipboard" :size="17" /></button><button type="button" title="Vista en cuadrícula" :class="teamView === 'grid' ? 'selected' : ''" @click="teamView='grid'"><AppIcon name="team" :size="17" /></button></div></div></div>
                 <div v-if="!visibleTeams.length" class="rounded-2xl border border-dashed border-slate-300 bg-white/80 p-12 text-center text-slate-600"><div class="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-league-50 text-league-700"><AppIcon name="team" :size="30" /></div><p class="mt-4 font-bold text-slate-800">{{ teams.length ? 'Ningún equipo coincide con los filtros.' : (canManage ? 'No hay equipos registrados.' : 'Todavía no tienes un equipo asignado.') }}</p></div>
                 <article v-for="team in visibleTeams" :key="team.id" class="entity-card premium-entity-card">
-                    <div class="grid gap-6 p-6 lg:grid-cols-[110px_1fr_auto]">
+                    <div class="grid gap-5 p-5 lg:grid-cols-[92px_minmax(0,1fr)_auto]">
                         <div class="entity-avatar premium-crest h-24 w-24"><img v-if="team.crest_url" :src="team.crest_url" :alt="`Escudo de ${team.name}`"><span v-else>{{ initials(team) }}</span></div>
                         <div><div class="flex flex-wrap items-center gap-3"><h2 class="text-xl font-bold text-slate-900">{{ team.name }}</h2><span class="entity-status" :class="statusClass(team.status)">{{ labels[team.status] }}</span></div><p class="mt-2 text-sm text-slate-600">Representante: <strong>{{ team.active_representative?.user.name ?? 'Sin representante' }}</strong></p><div class="mt-3 flex flex-wrap gap-2"><span class="entity-meta"><AppIcon name="mail" :size="14" /> {{ team.email || 'Sin correo' }}</span><span class="entity-meta"><AppIcon name="phone" :size="14" /> {{ team.phone || 'Sin teléfono' }}</span><span class="entity-meta"><AppIcon name="users" :size="14" /> {{ team.participations.length }} participaciones</span></div><div class="mt-3 flex gap-1.5"><span class="h-4 w-8 rounded-full border border-slate-200" :style="{ backgroundColor: team.primary_color }"></span><span class="h-4 w-8 rounded-full border border-slate-200" :style="{ backgroundColor: team.secondary_color }"></span></div></div>
-                        <div class="premium-team-actions flex flex-wrap content-start gap-2"><button class="btn-secondary" @click="startEdit(team)">{{ canManage ? 'Editar' : 'Solicitar cambio' }}</button><template v-if="canManage"><button class="btn-primary" :disabled="!eligibleCompetitions(team).length" @click="participationTeam = team">Nueva participación</button><a :href="`/liga/equipos/${team.id}/representante/photo`" class="btn-secondary">Foto del representante</a><a :href="`/liga/equipos/${team.id}/representante/ine`" class="btn-secondary">INE</a><button class="btn-secondary" @click="representativeTeam = team">Cambiar representante</button></template></div>
+                        <div class="premium-team-actions flex flex-wrap content-start gap-2"><button v-if="canManage" class="btn-primary" :disabled="!eligibleCompetitions(team).length" @click="participationTeam = team"><AppIcon name="users" :size="16" /> Nueva participación</button><button class="btn-secondary" @click="startEdit(team)"><AppIcon name="edit" :size="15" /> {{ canManage ? 'Editar' : 'Solicitar cambio' }}</button><div v-if="canManage" class="team-more"><button type="button" class="btn-secondary" :aria-expanded="openTeamMenu === team.id" :aria-label="`Más opciones para ${team.name}`" @click="openTeamMenu = openTeamMenu === team.id ? null : team.id">···</button><div v-if="openTeamMenu === team.id" class="team-more-menu"><button type="button" @click="representativeTeam = team; openTeamMenu = null"><AppIcon name="users" :size="16" /> Cambiar representante</button><a :href="`/liga/equipos/${team.id}/representante/photo`"><AppIcon name="image" :size="16" /> Foto del representante</a><a :href="`/liga/equipos/${team.id}/representante/ine`"><AppIcon name="file" :size="16" /> INE</a><p class="menu-helper">Los cambios de estado se gestionan por participación.</p></div></div></div>
                     </div>
-                    <div class="premium-participations border-t border-slate-200 bg-slate-50 p-5"><h3 class="text-sm font-semibold">Participaciones</h3><div class="mt-3 space-y-3"><div v-for="participation in team.participations" :key="participation.id" class="premium-participation-row flex flex-col justify-between gap-3 rounded-xl bg-white p-4 sm:flex-row sm:items-center"><div><p class="text-sm font-medium">{{ participation.competition.tournament.season.name }} · {{ participation.competition.name }}</p><p class="mt-1 text-xs text-slate-500">{{ participation.competition.division.name }} · {{ participation.competition.category.name }} · {{ labels[participation.status] }}</p></div><div v-if="canManage" class="flex flex-wrap gap-2"><button v-if="['pending', 'rejected'].includes(participation.status)" class="btn-primary" @click="transition(participation, 'approve', 'Aprobar')">Aprobar</button><button v-if="participation.status === 'pending'" class="btn-danger" @click="transition(participation, 'reject', 'Rechazar')">Rechazar</button><button v-if="participation.status === 'active'" class="btn-danger" @click="transition(participation, 'suspend', 'Suspender')">Suspender</button><button v-if="['suspended', 'inactive'].includes(participation.status)" class="btn-primary" @click="transition(participation, 'reactivate', 'Reactivar')">Reactivar</button><button v-if="['active', 'suspended'].includes(participation.status)" class="btn-secondary" @click="transition(participation, 'deactivate', 'Desactivar')">Desactivar</button></div></div></div></div>
+                    <div class="premium-participations border-t border-slate-200 bg-slate-50 p-5"><h3 class="text-sm font-semibold">Participaciones ({{ team.participations.length }})</h3><div class="mt-3 space-y-3"><div v-for="participation in team.participations" :key="participation.id" class="premium-participation-row flex flex-col justify-between gap-3 rounded-xl bg-white p-4 sm:flex-row sm:items-center"><div><p class="text-sm font-medium">{{ participation.competition.tournament.season.name }} · {{ participation.competition.name }}</p><p class="mt-1 text-xs text-slate-500">{{ participation.competition.division.name }} · {{ participation.competition.category.name }} · {{ labels[participation.status] }}</p></div><div v-if="canManage" class="flex flex-wrap gap-2"><button v-if="['pending', 'rejected'].includes(participation.status)" class="btn-primary" @click="transition(participation, 'approve', 'Aprobar')">Aprobar</button><button v-if="participation.status === 'pending'" class="btn-danger" @click="transition(participation, 'reject', 'Rechazar')">Rechazar</button><button v-if="participation.status === 'active'" class="btn-danger" @click="transition(participation, 'suspend', 'Suspender')">Suspender</button><button v-if="['suspended', 'inactive'].includes(participation.status)" class="btn-primary" @click="transition(participation, 'reactivate', 'Reactivar')">Reactivar</button><button v-if="['active', 'suspended'].includes(participation.status)" class="btn-secondary" @click="transition(participation, 'deactivate', 'Desactivar')">Desactivar</button></div></div></div></div>
                     <details v-if="team.names.length > 1" class="border-t border-slate-200 p-5"><summary class="cursor-pointer text-sm font-semibold">Historial de nombres ({{ team.names.length }})</summary><ul class="mt-3 space-y-2 text-sm text-slate-600"><li v-for="name in team.names" :key="name.id">{{ name.name }} ({{ name.short_name }}) · desde {{ new Date(name.valid_from).toLocaleDateString('es-MX') }}</li></ul></details>
                 </article>
             </div>
 
-            <div v-if="activeTab === 'solicitudes'" class="mt-7 space-y-5">
-                <div v-if="canManage && pendingParticipations.length" class="premium-request-card card p-6"><h2 class="text-xl font-semibold"> <AppIcon name="clock" :size="22" /> Participaciones pendientes</h2><div class="mt-4 divide-y divide-slate-200"><div v-for="item in pendingParticipations" :key="item.participation.id" class="flex flex-col justify-between gap-3 py-4 sm:flex-row sm:items-center"><div><div class="flex items-center gap-3"><span class="request-crest"><img v-if="item.team.crest_url" :src="item.team.crest_url" :alt="`Escudo de ${item.team.name}`"><AppIcon v-else name="team" :size="23" /></span><div><p class="font-semibold text-slate-900">{{ item.team.name }}</p><p class="text-sm text-slate-500">{{ item.participation.competition.name }}</p></div></div></div><div class="flex gap-2"><button class="btn-primary" @click="transition(item.participation, 'approve', 'Aprobar')">Aprobar</button><button class="btn-danger" @click="transition(item.participation, 'reject', 'Rechazar')">Rechazar</button></div></div></div></div>
-                <div class="premium-request-card card p-6"><h2 class="text-xl font-semibold"><AppIcon name="refresh" :size="22" /> {{ canManage ? 'Cambios pendientes' : 'Solicitudes enviadas' }}</h2><div v-if="!pendingChanges.length" class="mt-4 text-sm text-slate-500">No hay solicitudes pendientes.</div><div v-else class="mt-4 divide-y divide-slate-200"><div v-for="item in pendingChanges" :key="item.change.id" class="py-4"><div class="flex flex-col justify-between gap-3 sm:flex-row"><div><p class="font-medium">{{ item.team.name }}</p><p class="mt-1 text-sm text-slate-500">{{ item.change.request_reason }}</p><p class="mt-2 text-xs text-slate-500">Solicitó: {{ item.change.requester.name }}</p></div><div v-if="canManage" class="flex gap-2"><button class="btn-primary" @click="reviewChange(item.change, 'approve')">Aprobar</button><button class="btn-danger" @click="reviewChange(item.change, 'reject')">Rechazar</button></div></div></div></div></div>
+            <div v-if="activeTab === 'solicitudes'" class="mt-7 space-y-5"><div class="premium-panel request-heading"><div class="flex items-center gap-3"><span class="request-heading-icon"><AppIcon name="clipboard" :size="25" /></span><div><h2>Centro de solicitudes</h2><p>Revisa y gestiona cambios, actualizaciones y aprobaciones de equipos y representantes.</p></div></div><div class="request-filter-row"><input v-model="requestSearch" class="form-input" aria-label="Buscar solicitudes" placeholder="Buscar solicitud por equipo, representante o detalle..."><select v-model="requestType" class="form-input" aria-label="Tipo de solicitud"><option value="all">Todos los tipos</option><option value="participation">Participaciones</option><option value="change">Cambios de datos</option></select><select v-model="requestStatus" class="form-input" aria-label="Estado de solicitud"><option value="pending">Pendientes</option><option value="all">Todos los estados cargados</option></select></div></div><div class="request-content-grid"><div class="request-list">
+                <div v-if="canManage && filteredParticipations.length" class="premium-request-card card p-6"><h2 class="text-xl font-semibold"> <AppIcon name="clock" :size="22" /> Participaciones pendientes</h2><div class="mt-4 divide-y divide-slate-200"><div v-for="item in filteredParticipations" :key="item.participation.id" class="flex flex-col justify-between gap-3 py-4 sm:flex-row sm:items-center"><div><div class="flex items-center gap-3"><span class="request-crest"><img v-if="item.team.crest_url" :src="item.team.crest_url" :alt="`Escudo de ${item.team.name}`"><AppIcon v-else name="team" :size="23" /></span><div><p class="font-semibold text-slate-900">{{ item.team.name }}</p><p class="text-sm text-slate-500">{{ item.participation.competition.name }}</p></div></div></div><div class="flex gap-2"><button class="btn-primary" @click="transition(item.participation, 'approve', 'Aprobar')">Aprobar</button><button class="btn-danger" @click="transition(item.participation, 'reject', 'Rechazar')">Rechazar</button></div></div></div></div>
+                <div v-if="filteredChanges.length" class="premium-request-card card p-6"><h2 class="text-xl font-semibold"><AppIcon name="refresh" :size="22" /> {{ canManage ? 'Cambios pendientes' : 'Solicitudes enviadas' }}</h2><div v-if="!filteredChanges.length" class="mt-4 text-sm text-slate-500">No hay cambios que coincidan con los filtros.</div><div v-else class="mt-4 divide-y divide-slate-200"><div v-for="item in filteredChanges" :key="item.change.id" class="py-4"><div class="flex flex-col justify-between gap-3 sm:flex-row"><div><p class="font-medium">{{ item.team.name }}</p><p class="mt-1 text-sm text-slate-500">{{ item.change.request_reason }}</p><p class="mt-2 text-xs text-slate-500">Solicitó: {{ item.change.requester.name }}</p></div><div v-if="canManage" class="flex gap-2"><button class="btn-primary" @click="reviewChange(item.change, 'approve')">Aprobar</button><button class="btn-danger" @click="reviewChange(item.change, 'reject')">Rechazar</button></div></div></div></div></div>
+                <div v-if="!filteredParticipations.length && !filteredChanges.length" class="premium-panel request-empty"><span class="request-empty-illustration"><AppIcon name="clipboard" :size="70" /></span><h3>No hay solicitudes pendientes</h3><p>¡Todo al día! Actualmente no hay cambios o aprobaciones que coincidan con los filtros.</p><div class="flex flex-wrap justify-center gap-3"><button type="button" class="btn-secondary" @click="activeTab='equipos'">Ver equipos</button><button v-if="canManage" type="button" class="btn-primary" @click="activeTab='registrar'">Registrar equipo</button></div></div>
+                </div><aside class="request-info"><div class="premium-panel request-guide"><h3><AppIcon name="file" :size="20" /> Qué aparecerá aquí</h3><p>En este centro podrás revisar y gestionar solicitudes como:</p><div v-for="(type, index) in requestTypes" :key="index" class="request-guide-item"><span><AppIcon :name="type.icon" :size="18" /></span><div><strong>{{ type.title }}</strong><small>{{ type.description }}</small></div></div></div><div class="premium-panel request-guide"><h3><AppIcon name="clock" :size="19" /> Actividad y seguimiento</h3><p>Las solicitudes se conservan en los registros de la liga y se atienden desde sus acciones disponibles.</p></div></aside></div>
             </div>
         </section>
 
@@ -287,13 +342,13 @@ function submitParticipation() {
 .participants-premium { max-width: 1500px; margin-inline: auto; }
 .participants-premium .participants-hero {
     position: relative; isolation: isolate; overflow: hidden;
-    background-image: linear-gradient(108deg, rgba(11, 43, 92, .96) 0%, rgba(20, 82, 155, .87) 57%, rgba(7, 54, 82, .82) 100%), url('/images/public/league-stadium.jpg');
-    background-size: cover; background-position: center 55%;
+    background: linear-gradient(112deg, #133b75 0%, #155ca9 68%, #0e447e 100%);
     border-radius: 1.5rem; min-height: 192px;
 }
 .participants-premium .participants-hero::before {
     content: ''; position: absolute; z-index: 0; inset: 0;
-    background: linear-gradient(90deg, rgba(5, 20, 45, .14), transparent 72%);
+    background: linear-gradient(133deg, transparent 62%, rgba(255,255,255,.05) 62% 74%, transparent 74%),
+      linear-gradient(133deg, transparent 76%, rgba(255,255,255,.035) 76% 86%, transparent 86%);
     pointer-events: none;
 }
 .participants-premium .participants-hero-content { position: relative; z-index: 1; padding: 2.2rem 2.6rem; }
@@ -352,45 +407,45 @@ function submitParticipation() {
   .participants-premium .premium-form-section { padding: 1rem; }
 }
 
-/* Sistema de iconos coherente con las tarjetas de Competencias y reglamentos. */
-.participants-premium .participants-stat-icon,
-.participants-premium .participants-stat:nth-child(n) .participants-stat-icon {
-    width: 3.55rem;
-    height: 3.55rem;
-    flex: 0 0 3.55rem;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-}
-.participants-premium .participants-tab-icon {
-    display: grid;
-    width: 2rem;
-    height: 2rem;
-    flex: 0 0 2rem;
-    place-items: center;
-    border-radius: .65rem;
-    background: #eaf2fc;
-    color: #174e92;
-}
-.participants-premium .participants-tab-active .participants-tab-icon {
-    background: rgba(255,255,255,.18);
-    color: #fff;
-}
-.participants-premium .participants-stat strong { color: #112746; }
-.participants-premium .participants-stat p { color: #223b5e; font-weight: 700; }
-</style>
 
-<style scoped>
-/* Mejoras puntuales de legibilidad e iconografía del módulo. */
-.participants-premium .participants-stat-icon {
-    border: 1px solid rgba(23, 75, 141, .10);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.72);
-}
-.participants-premium .participants-tab :deep(svg) {
-    flex-shrink: 0;
-    stroke-width: 2.1;
-}
-.participants-premium .participants-tab-active :deep(svg) {
-    filter: none;
-}
+/* Rediseño de Módulo 5: diseño coherente, marca dinámica, y comportamiento responsive */
+.participants-premium { --pt-accent: var(--color-league-600, #b86a0a); --pt-strong: var(--color-league-700, #97510b); --pt-dark: var(--color-league-900, #56320c); }
+.participants-premium .participants-hero { background-image: linear-gradient(104deg, color-mix(in srgb, var(--pt-dark) 88%, transparent), color-mix(in srgb, var(--pt-accent) 74%, transparent)), url('/images/public/league-stadium.jpg'); background-size: cover; background-position: center 54%; min-height: 174px; }
+.participants-premium .participants-hero::before { background: linear-gradient(90deg,rgba(0,0,0,.15),transparent 75%); }
+.participants-premium .participants-hero .text-amber-200 { color: #e6f58f; }
+.participants-premium .participants-tab-active { background: var(--pt-accent); box-shadow: 0 6px 14px color-mix(in srgb, var(--pt-accent) 28%, transparent); }
+.participants-premium .btn-primary, .participants-premium .participants-empty-link { background: var(--pt-accent); color: #fff; }
+.participants-premium .btn-primary:hover { background: var(--pt-strong); }
+.participants-premium .participants-stat { position: relative; overflow: hidden; min-height: 112px; }
+.participants-premium .participants-stat::after { content:''; position:absolute; right:13px; bottom:13px; width:70px; height:27px; opacity:.22; border-bottom:3px solid var(--pt-accent); border-radius:0 0 65% 40%; transform: skewY(-9deg); }
+.participants-premium .participants-stat:first-child .participants-stat-icon { background:color-mix(in srgb, var(--pt-accent) 12%, white); color: var(--pt-strong); }
+.premium-panel { background:#fff; border:1px solid #e2eaf4; border-radius:20px; box-shadow:0 12px 28px rgba(23,48,82,.07); }
+.summary-bottom-grid { display:grid; grid-template-columns:1.4fr .9fr; gap:18px; }
+.summary-empty { display:grid; grid-template-columns: 36% 1fr; gap:20px; align-items:center; padding:32px; min-height:330px; }
+.summary-illustration { height:180px; display:grid; place-items:center; position:relative; border-radius:50%; color:var(--pt-accent); background:radial-gradient(circle, color-mix(in srgb, var(--pt-accent) 14%,white), transparent 68%); }
+.summary-illustration-small { position:absolute; display:grid; place-items:center; width:70px;height:70px;background:#fff;border-radius:50%; color:var(--pt-strong); }
+.summary-empty h2 { font-size:clamp(1.25rem,2vw,1.65rem); font-weight:800; color:#172943; }
+.summary-empty p { color:#687c98; line-height:1.7; margin-top:10px; }
+.summary-buttons { display:flex; flex-wrap:wrap; gap:10px; margin-top:24px; }
+.summary-buttons > * { display:inline-flex; gap:9px; align-items:center; justify-content:center; border-radius:10px; padding:11px 17px; font-weight:700; }
+.next-steps { padding:26px; }.next-steps h3 { font-size:1.1rem;font-weight:800;color:#152b4b; }.next-steps p {font-size:.83rem;color:#64748b;margin-top:4px;}
+.step-rocket { display:grid;place-items:center;width:46px;height:46px;border-radius:12px;background:#fff2d8;color:#b36800; }
+.next-step { display:flex;align-items:center;gap:13px;padding:18px 2px;width:100%;text-align:left;border-top:1px solid #edf1f6; }.next-step:first-of-type{margin-top:16px}.next-step>span {display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:color-mix(in srgb,var(--pt-accent) 15%,white);color:var(--pt-strong);font-weight:800}.next-step>div{flex:1}.next-step strong{font-size:.88rem;color:#1b304b}.next-step small{display:block;font-size:.78rem;color:#71809b;margin-top:3px}.next-step b{font-size:1.4rem;color:var(--pt-accent)}
+.participants-premium .registration-premium { background:transparent;overflow:visible;box-shadow:none;border:none; }
+.participants-premium .registration-stepper { display:flex;gap:10px; flex-wrap:wrap; margin:20px 0 16px; }
+.wizard-step { display:flex;align-items:center;gap:9px;padding:11px 13px; background:#fff; border:1px solid #dfe7f1; border-radius:14px; flex:1; min-width:150px;text-align:left; }
+.wizard-step>span { display:grid;place-items:center;width:30px;height:30px;flex:0 0 30px;background:#eff4fb;color:#416080;border-radius:50%;font-weight:800; }
+.wizard-step strong { display:block;font-size:.78rem; color:#23405e; }.wizard-step small {display:block;color:#8291a8;font-size:.68rem;line-height:1.4;margin-top:3px;}
+.wizard-step-active { background:color-mix(in srgb,var(--pt-accent) 9%,white);border-color:color-mix(in srgb,var(--pt-accent) 33%,white); }
+.wizard-step-active>span {background:var(--pt-accent);color:#fff}
+.participants-premium .wizard-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,300px);align-items:start;gap:16px}.participants-premium .registration-main{min-width:0}
+.participants-premium .premium-form-section {min-height:350px;padding:28px;}.participants-premium .form-section-icon{background:color-mix(in srgb,var(--pt-accent) 15%,white);color:var(--pt-strong)}
+.participants-premium .premium-guide{min-height:245px;padding:25px}.participants-premium .guide-icon{background:color-mix(in srgb,var(--pt-accent) 13%,white);color:var(--pt-strong)}.guide-copy{font-size:.85rem;color:#5a6d86;line-height:1.7;margin-top:18px}.wizard-actions{margin-top:15px}.wizard-alert{background:#fff4e5;color:#9b4e00;border:1px solid #fed7aa;border-radius:10px;padding:10px;margin-bottom:10px;font-size:.82rem}
+.directory-shell{padding:22px}.directory-title h2,.request-heading h2{font-size:1.3rem;font-weight:800;color:#162d4d}.directory-title p,.request-heading p{font-size:.85rem;color:#6b7d96;margin-top:4px}.directory-filters{display:grid;grid-template-columns:minmax(200px,1fr) 190px 190px auto;gap:12px;margin-top:18px}.view-switch{display:flex;gap:4px}.view-switch button{display:grid;place-items:center;width:43px;border:1px solid #dce6f0;border-radius:9px;color:#315478}.view-switch button.selected{background:var(--pt-accent);color:#fff;border-color:var(--pt-accent)}
+.participants-premium .premium-team-actions{max-width:330px;}.team-more{position:relative}.team-more-menu{position:absolute;z-index:20;right:0;top:calc(100% + 8px);min-width:240px;padding:7px;background:#fff;border:1px solid #dce5f0;border-radius:12px;box-shadow:0 14px 30px #112f5225;}.team-more-menu a,.team-more-menu button{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;text-align:left;border-radius:8px;font-size:.82rem;color:#253e5d}.team-more-menu a:hover,.team-more-menu button:hover{background:#f2f6fc}.team-more-menu .menu-helper{padding:8px;border-top:1px solid #e5edf5;color:#74839b;font-size:.72rem;line-height:1.5}.participants-premium .premium-entity-card .premium-participation-row{padding:11px 14px}.participants-premium .premium-entity-card .premium-participations{padding:15px 19px}
+.directory-grid .premium-entity-card { display:block; }.directory-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.directory-grid>.directory-shell{grid-column:1/-1}.directory-grid .premium-entity-card>.grid{grid-template-columns:75px minmax(0,1fr);}.directory-grid .premium-entity-card .premium-team-actions{grid-column:1/-1;justify-content:flex-start}
+.request-heading{padding:23px}.request-heading-icon{display:grid;place-items:center;width:46px;height:46px;background:color-mix(in srgb,var(--pt-accent) 12%,white);color:var(--pt-strong);border-radius:12px}.request-filter-row{display:grid;grid-template-columns:1fr 190px 190px;gap:12px;margin-top:20px}.request-content-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(280px,.8fr);gap:16px}.request-list{min-width:0}.request-empty{text-align:center;padding:34px;margin-top:16px}.request-empty-illustration{display:grid;place-items:center;height:140px;color:var(--pt-accent);background:radial-gradient(circle,color-mix(in srgb,var(--pt-accent) 14%,white),transparent 65%)}.request-empty h3{font-size:1.4rem;font-weight:800;color:#173152}.request-empty p{max-width:440px;margin:12px auto 22px;color:#64748b;line-height:1.6}.request-guide{padding:21px;margin-bottom:16px}.request-guide h3{display:flex;align-items:center;gap:8px;font-weight:800;color:#162b4e}.request-guide>p{margin:8px 0 13px;font-size:.82rem;line-height:1.5;color:#61718a}.request-guide-item{display:flex;gap:11px;padding:13px 0;border-top:1px solid #e6edf5}.request-guide-item>span{display:grid;place-items:center;width:36px;height:36px;flex-shrink:0;border-radius:10px;background:color-mix(in srgb,var(--pt-accent) 11%,white);color:var(--pt-strong)}.request-guide-item strong{display:block;font-size:.82rem;color:#203653}.request-guide-item small{font-size:.72rem;color:#77859c;display:block;margin-top:3px;line-height:1.45}
+@media (max-width:1100px){.summary-bottom-grid,.request-content-grid{grid-template-columns:1fr}.directory-filters{grid-template-columns:1fr 1fr}.participants-premium .wizard-layout{grid-template-columns:1fr}.directory-grid{grid-template-columns:1fr}.request-filter-row{grid-template-columns:1fr 1fr}.request-filter-row input{grid-column:1/-1}}
+@media (max-width:700px){.summary-empty{grid-template-columns:1fr;text-align:center;padding:20px}.summary-illustration{height:120px}.summary-buttons{justify-content:center}.directory-filters,.request-filter-row{grid-template-columns:1fr}.request-filter-row input{grid-column:auto}.wizard-step{min-width:100%;}.participants-premium .premium-form-section{padding:16px}.participants-premium .premium-entity-card>.grid{grid-template-columns:1fr}.team-more-menu{right:auto;left:0}.participants-premium .participants-hero{min-height:160px}}
+
 </style>
