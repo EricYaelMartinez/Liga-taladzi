@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./proliga-unified-headers.css";
 
 @theme {
     --color-league-50: #eff8f0;

@@ -91,7 +91,7 @@
         .field { margin-bottom: 1.3mm; }
         .field-label {
             display: block; font-size: 4.45pt; line-height: 2.4mm;
-            color: #586774; font-weight: bold; text-transform: uppercase;
+            color: #0d3e69; font-weight: bold; text-transform: uppercase;
         }
         .field-value {
             display: block; width: 100%; max-height: 7.1mm;

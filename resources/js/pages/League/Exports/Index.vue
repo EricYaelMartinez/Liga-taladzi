@@ -37,7 +37,7 @@ function clearFilters(): void {
 <template>
     <Head title="Reportes y exportaciones" />
     <AppLayout>
-        <header class="mb-7">
+        <header class="mb-7 proliga-unified-hero">
             <p class="text-sm font-bold uppercase tracking-[0.18em] text-league-600">Módulo 18</p>
             <h1 class="mt-1 text-3xl font-semibold text-slate-900">Reportes y exportaciones</h1>
             <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Genera documentos oficiales en PDF o libros de Excel. Cada descarga conserva un folio y queda registrada en la bitácora.</p>

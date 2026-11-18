@@ -89,7 +89,7 @@ function deleteBlock(item: Block) { const reason = prompt('Motivo para eliminar 
     <Head title="Campos y disponibilidad" />
     <AppLayout>
         <section class="fields-page">
-            <div class="fields-hero">
+            <div class="proliga-unified-hero">
                 <div class="fields-hero__content">
                     <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
                         <div class="max-w-3xl">

@@ -106,7 +106,7 @@ function time(value: string): string { return value.slice(0, 5); }
     <Head title="Árbitros y disponibilidad" />
     <AppLayout>
         <section class="referees-page">
-            <header class="referees-hero">
+            <header class="referees-hero proliga-unified-hero">
                 <div class="referees-hero__inner">
                     <div class="max-w-3xl">
                         <p class="text-xs font-bold uppercase tracking-[0.22em] text-white/75">Módulo 9 · Operación</p>

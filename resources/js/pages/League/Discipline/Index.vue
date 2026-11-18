@@ -47,7 +47,7 @@ function resolveSubmit(): void { if (!resolveTarget.value?.appeal) return; resol
     <Head title="Sanciones y disciplina" />
     <AppLayout>
         <section>
-            <div class="discipline-hero">
+            <div class="proliga-unified-hero">
                 <div class="relative z-10 flex flex-col gap-5 px-6 py-7 lg:flex-row lg:items-center lg:justify-between lg:px-9 lg:py-9">
                     <div class="flex min-w-0 items-center gap-5">
                         <div class="hidden h-20 w-1.5 shrink-0 rounded-full bg-sky-400 sm:block"></div>

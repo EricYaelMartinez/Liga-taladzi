@@ -165,7 +165,7 @@ function submitParticipation() {
     <Head title="Equipos y representantes" />
     <AppLayout>
         <section class="participants-page participants-premium">
-            <div class="participants-hero">
+            <div class="participants-hero proliga-unified-hero">
                 <div class="participants-hero-content">
                     <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                         <div class="max-w-2xl"><p class="text-xs font-bold uppercase tracking-[0.24em] text-amber-200">Participantes · Módulo 5</p><h1 class="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Equipos y representantes</h1><p class="mt-2 text-sm text-white/75 sm:text-base">Centraliza la identidad de cada club, sus responsables y la participación en las competencias de la liga.</p></div>

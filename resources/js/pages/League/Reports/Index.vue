@@ -105,7 +105,7 @@ function reportStatusClass(status: string | undefined): string {
     <Head title="Cédulas arbitrales" />
     <AppLayout>
         <section class="match-operations-page">
-            <header class="match-operations-hero cedula-hero">
+            <header class="match-operations-hero cedula-hero proliga-unified-hero">
                 <div class="match-operations-hero-content">
                     <div><p class="text-xs font-black uppercase tracking-[0.2em] text-pink-300">Módulo 12 · Documento oficial</p><h1 class="mt-2 text-3xl font-black sm:text-4xl">Cédulas arbitrales</h1><p class="mt-2 max-w-2xl text-sm leading-6 text-white/85">Registro de resultados, eventos y conformidades oficiales.</p></div>
                     <div class="flex items-center gap-3 rounded-xl border border-white/25 bg-white/10 px-5 py-3 text-sm font-bold text-white backdrop-blur-sm"><AppIcon name="clipboard" :size="24" /> Control y trazabilidad</div>

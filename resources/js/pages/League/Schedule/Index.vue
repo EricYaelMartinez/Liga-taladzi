@@ -176,7 +176,7 @@ function transition(match: Match, status: string) { const reason = prompt(`Motiv
     <Head title="Jornadas y programación" />
     <AppLayout>
         <section class="schedule-page">
-            <div class="schedule-hero overflow-hidden rounded-[1.9rem] text-white shadow-2xl shadow-slate-950/20">
+            <div class="schedule-hero overflow-hidden rounded-[1.9rem] text-white shadow-2xl shadow-slate-950/20 proliga-unified-hero">
                 <div class="relative z-10 px-6 py-7 sm:px-8 lg:px-10 lg:py-9">
                     <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
                         <div class="flex items-start gap-5">

@@ -95,7 +95,7 @@ function save() {
     <Head title="Parámetros generales" />
     <AppLayout>
         <div class="operational-page mx-auto max-w-[1440px] pb-8">
-            <header class="operational-hero">
+            <header class="operational-hero proliga-unified-hero">
                 <div class="operational-hero-content">
                     <div class="op-hero-icon"><AppIcon name="sliders" :size="29" /></div>
                     <div class="min-w-0 flex-1">

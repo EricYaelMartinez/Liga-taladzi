@@ -97,7 +97,7 @@ function matchStatusClass(status: string): string {
     <AppLayout>
         <section class="lineups-premium">
             <template v-if="!editMatch || !editTeam">
-                <header class="lp-hero">
+                <header class="lp-hero proliga-unified-hero">
                     <div class="lp-hero-main">
                         <div>
                             <p class="lp-eyebrow">Módulo 11 · Operación del partido</p>

@@ -68,7 +68,7 @@ function standingValue(row: Standing, abbr: string): number {
     <Head title="Resultados y estadísticas" />
     <AppLayout>
         <section class="stats-page space-y-5 pb-8">
-            <header class="stats-hero">
+            <header class="stats-hero proliga-unified-hero">
                 <div class="stats-hero__inner">
                     <div class="min-w-0">
                         <p class="stats-overline">Módulo 13 · <span>Resultados y estadísticas</span></p>

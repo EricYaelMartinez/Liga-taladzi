@@ -159,7 +159,7 @@ function savePreferences(): void { preferencesForm.put('/liga/avisos/preferencia
     <Head title="Avisos y notificaciones" />
     <AppLayout>
         <section class="notices-page mx-auto max-w-7xl pb-12">
-            <header class="notices-heading flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
+            <header class="notices-heading flex flex-col justify-between gap-5 lg:flex-row lg:items-center proliga-unified-hero">
                 <div>
                     <p class="text-xs font-extrabold uppercase tracking-[0.2em] text-league-600">Módulo 16</p>
                     <h1 class="mt-2 text-3xl font-extrabold tracking-tight text-slate-950 sm:text-4xl">Avisos y notificaciones</h1>

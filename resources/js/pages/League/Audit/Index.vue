@@ -138,7 +138,7 @@ const diffFor = (entry: Entry): DiffRow[] => {
     <Head title="Bitácora de cambios" />
     <AppLayout>
         <section class="mx-auto max-w-[1480px] pb-8">
-            <header class="mb-6">
+            <header class="mb-6 proliga-unified-hero">
                 <p class="text-xs font-extrabold uppercase tracking-[.19em] text-league-700">Módulo 19 · Auditoría</p>
                 <h1 class="mt-1 text-3xl font-extrabold tracking-tight text-slate-900">Bitácora de cambios</h1>
                 <p class="mt-2 text-sm text-slate-600">Consulta quién realizó cada operación, cuándo ocurrió y qué información fue modificada dentro de esta liga.</p>

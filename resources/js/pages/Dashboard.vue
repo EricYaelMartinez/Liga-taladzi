@@ -74,7 +74,7 @@ const progress = (value: number, maximum: number) => `${Math.min(100, Math.round
     <Head title="Panel" />
     <AppLayout>
         <main class="dashboard-premium">
-            <section class="dashboard-hero" aria-label="Contexto de administración">
+            <section class="dashboard-hero proliga-unified-hero" aria-label="Contexto de administración">
                 <div class="dashboard-hero__inner">
                     <div class="min-w-0">
                         <p class="dashboard-kicker">Panel de administración</p>

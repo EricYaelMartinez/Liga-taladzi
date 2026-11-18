@@ -1,0 +1,170 @@
+@layer components {
+  .proliga-unified-hero {
+    --pl-primary: var(--color-league-600, #1b2a4a);
+    --pl-secondary: var(--color-gold-500, #c5a059);
+    position: relative !important;
+    isolation: isolate;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0;
+    overflow: hidden !important;
+    min-height: 182px;
+    padding: clamp(24px, 3vw, 40px) clamp(24px, 4vw, 52px) !important;
+    border: 0 !important;
+    border-radius: 28px !important;
+    box-shadow: 0 14px 32px -23px rgba(5, 18, 34, .45) !important;
+    color: #fff !important;
+    background-color: #071425 !important;
+    background-image:
+      linear-gradient(94deg,
+        color-mix(in srgb, var(--pl-primary) 78%, #03111f) 0%,
+        color-mix(in srgb, var(--pl-primary) 52%, #061728) 38%,
+        color-mix(in srgb, var(--pl-secondary) 38%, transparent) 82%,
+        color-mix(in srgb, var(--pl-secondary) 66%, #0c1724) 100%),
+      url('/images/public/league-stadium.jpg') !important;
+    background-repeat: no-repeat !important;
+    background-size: cover !important;
+    background-position: center center !important;
+    background-blend-mode: multiply, normal !important;
+  }
+
+  .proliga-unified-hero--split {
+    gap: 18px;
+  }
+
+  @media (min-width: 768px) {
+    .proliga-unified-hero--split {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+  }
+
+  .proliga-hero-copy {
+    position: relative;
+    z-index: 1;
+    max-width: min(920px, 100%);
+  }
+
+  .proliga-hero-actions {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .proliga-unified-hero::before,
+  .proliga-unified-hero::after {
+    content: '' !important;
+    position: absolute !important;
+    left: -12% !important;
+    width: 124% !important;
+    height: 108px !important;
+    border-radius: 50% 50% 0 0 / 100% 100% 0 0 !important;
+    z-index: 0 !important;
+    pointer-events: none !important;
+    opacity: .8 !important;
+  }
+
+  .proliga-unified-hero::before {
+    bottom: -90px !important;
+    border-top: 8px solid color-mix(in srgb, var(--pl-primary) 70%, #56d9ff) !important;
+    transform: rotate(3deg) !important;
+  }
+
+  .proliga-unified-hero::after {
+    bottom: -96px !important;
+    border-top: 7px solid color-mix(in srgb, var(--pl-secondary) 68%, #ff5d73) !important;
+    transform: rotate(-3deg) !important;
+  }
+
+  .proliga-unified-hero > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .proliga-unified-hero h1 {
+    color: #fff !important;
+    font-size: clamp(1.9rem, 2.7vw, 3rem) !important;
+    font-weight: 800 !important;
+    line-height: 1.05 !important;
+    letter-spacing: -.04em !important;
+  }
+
+  .proliga-unified-hero p {
+    color: rgba(255,255,255,.92) !important;
+  }
+
+  .proliga-unified-hero .competition-eyebrow,
+  .proliga-unified-hero p[class*='uppercase'] {
+    color: color-mix(in srgb, var(--pl-secondary) 48%, #b5f4ff) !important;
+  }
+
+  .proliga-unified-hero select,
+  .proliga-unified-hero input,
+  .proliga-unified-hero textarea,
+  .proliga-unified-hero .form-input {
+    background: #fff !important;
+    color: #13253d !important;
+    -webkit-text-fill-color: #13253d !important;
+    border-color: rgba(203, 213, 225, 1) !important;
+    opacity: 1 !important;
+  }
+
+  .proliga-unified-hero select option {
+    background: #fff !important;
+    color: #13253d !important;
+  }
+
+  .proliga-unified-hero label,
+  .proliga-unified-hero .form-label {
+    color: #fff !important;
+  }
+
+  .proliga-unified-hero .btn-primary,
+  .proliga-unified-hero .btn-secondary {
+    background: rgba(255, 255, 255, .98) !important;
+    color: color-mix(in srgb, var(--pl-primary) 72%, #12263c) !important;
+    border: 1px solid rgba(255,255,255,.88) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 8px 18px rgba(0,0,0,.12) !important;
+  }
+
+  .proliga-unified-hero .btn-primary:hover,
+  .proliga-unified-hero .btn-secondary:hover {
+    filter: brightness(.98);
+  }
+
+  .proliga-unified-hero .proliga-unified-hero {
+    min-height: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    background: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+  }
+
+  .proliga-unified-hero .proliga-unified-hero::before,
+  .proliga-unified-hero .proliga-unified-hero::after {
+    content: none !important;
+  }
+
+  @media (max-width: 767px) {
+    .proliga-unified-hero {
+      min-height: 168px;
+      border-radius: 22px !important;
+    }
+
+    .proliga-unified-hero::before { bottom: -95px !important; }
+    .proliga-unified-hero::after { bottom: -100px !important; }
+
+    .proliga-hero-actions {
+      width: 100%;
+    }
+  }
+}

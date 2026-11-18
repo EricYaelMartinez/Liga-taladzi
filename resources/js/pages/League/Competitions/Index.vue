@@ -159,7 +159,7 @@ function seasonYear(value: string | null): string {
     <Head title="Temporadas y competencias" />
     <AppLayout>
         <section class="competition-page">
-            <header class="competition-hero">
+            <header class="competition-hero proliga-unified-hero">
                 <div class="competition-hero-content">
                     <div class="min-w-0">
                         <span class="competition-eyebrow"><AppIcon name="trophy" :size="15" /> Gestión deportiva</span>

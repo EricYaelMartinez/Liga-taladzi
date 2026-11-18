@@ -10,9 +10,9 @@ const props = withDefaults(defineProps<{ name: string; size?: number | string; s
 const greenIcons = new Set(['users', 'team', 'football', 'field', 'check', 'refresh', 'shield']);
 const goldIcons = new Set(['settings', 'trophy', 'bell', 'badge', 'id', 'clipboard', 'gavel', 'wallet']);
 const iconPalette = computed(() => {
-    if (greenIcons.has(props.name)) return { accent: '#2E7D32', soft: '#E8F4EA', secondary: '#C5A059' };
-    if (goldIcons.has(props.name)) return { accent: '#C5A059', soft: '#F8F1DF', secondary: '#2E7D32' };
-    return { accent: '#315E91', soft: '#EAF1F8', secondary: '#C5A059' };
+    if (greenIcons.has(props.name)) return { accent: 'var(--color-league-600)', soft: 'var(--color-league-50)', secondary: 'var(--color-gold-500)' };
+    if (goldIcons.has(props.name)) return { accent: 'var(--color-gold-500)', soft: 'color-mix(in srgb, var(--color-gold-500) 13%, white)', secondary: 'var(--color-league-600)' };
+    return { accent: 'var(--color-league-600)', soft: 'var(--color-league-50)', secondary: 'var(--color-gold-500)' };
 });
 
 const icons: Record<string, string[]> = {
@@ -52,6 +52,12 @@ const icons: Record<string, string[]> = {
     phone: ['M7 3h3l1.5 5-2 1.5a15 15 0 0 0 5 5L16 12l5 2v3c0 2-1.5 4-3.5 4C9.5 21 3 14.5 3 6.5 3 4.5 5 3 7 3Z'],
     image: ['M3 5h18v14H3V5Z', 'm3 11 4-4 6 6 3-3 5 5', 'M16 9h.01'],
     id: ['M3 5h18v14H3V5Z', 'M8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM5 17c.5-2 5.5-2 6 0M14 9h4M14 13h4M14 17h3'],
+    bolt: ['m13 2-9 12h7l-1 8 10-12h-7l1-8Z'],
+    close: ['M5 5l14 14M19 5 5 19'],
+    'chevron-down': ['m5 9 7 7 7-7'],
+    eye: ['M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z','M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z'],
+    info: ['M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z','M12 11v6M12 7h.01'],
+    search: ['M10.5 3a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15Z', 'm16 16 5 5'],
 };
 </script>
 

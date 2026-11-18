@@ -86,7 +86,7 @@ const leagueInitials = computed(() => initials(context.value?.league.name ?? 'Li
     <Head title="Miembros y roles" />
     <AppLayout>
         <div class="members-page">
-            <header class="members-hero">
+            <header class="members-hero proliga-unified-hero">
                 <div class="members-hero-content">
                     <div class="members-hero-title">
                         <span class="members-hero-icon"><AppIcon name="users" :size="30" /></span>

@@ -15,7 +15,7 @@ const selectedRole = computed(() => props.roles.find((role) => role.id === form.
     <Head title="Crear usuario de liga" />
     <AppLayout>
         <section class="mx-auto max-w-5xl">
-            <div class="page-hero overflow-hidden rounded-[1.85rem] border border-white/70 shadow-xl shadow-slate-900/10">
+            <div class="page-hero overflow-hidden rounded-[1.85rem] border border-white/70 shadow-xl shadow-slate-900/10 proliga-unified-hero">
                 <div class="relative z-10 flex flex-col gap-5 px-6 py-7 sm:px-8 lg:flex-row lg:items-start lg:justify-between lg:px-10 lg:py-9">
                     <div>
                         <p class="text-xs font-extrabold uppercase tracking-[0.26em] text-white/70">Miembros · alta de acceso</p>

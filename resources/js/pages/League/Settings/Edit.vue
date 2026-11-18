@@ -115,7 +115,7 @@ onBeforeUnmount(() => Object.values(previews).forEach((url) => { if (url) URL.re
     <Head title="Identidad de la liga" />
     <AppLayout>
         <section class="identity-page pb-24">
-            <header class="identity-hero">
+            <header class="proliga-unified-hero identity-hero--single">
                 <div class="relative z-10 flex flex-wrap items-center justify-between gap-5">
                     <div class="flex items-center gap-4">
                         <span class="hero-symbol"><AppIcon name="palette" :size="33" /></span>

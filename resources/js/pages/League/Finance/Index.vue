@@ -184,7 +184,7 @@ function voidPayment(payment: Payment): void {
     <AppLayout>
         <section>
             <header class="finance-hero">
-                <div class="relative z-10 flex flex-col gap-6 px-6 py-7 lg:flex-row lg:items-center lg:justify-between lg:px-9">
+                <div class="relative z-10 flex flex-col gap-6 px-6 py-7 lg:flex-row lg:items-center lg:justify-between lg:px-9 proliga-unified-hero">
                     <div class="max-w-3xl">
                         <p class="text-xs font-bold uppercase tracking-[0.24em] text-sky-200">Módulo 15 · Control financiero</p>
                         <h1 class="mt-2 text-3xl font-extrabold tracking-tight text-white sm:text-4xl">Pagos, fianzas y recibos</h1>
